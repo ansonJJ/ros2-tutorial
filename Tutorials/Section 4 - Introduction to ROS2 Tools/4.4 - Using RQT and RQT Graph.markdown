@@ -1,0 +1,209 @@
+# 4.4 - Using RQT and RQT Graph
+
+This tutorial introduces `rqt`, a graphical user interface (GUI) tool for ROS2 introspection and interaction, focusing on the `rqt_graph` plugin to visualize running nodes and their connections. It builds on node introspection from [4.1 - Introspecting Nodes with ROS2 CLI](4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and uses the Python (`my_py_pkg`) and C++ (`my_cpp_pkg`) nodes from [3.6 - Creating a ROS2 Python Node with OOP](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md) and [3.8 - Creating a ROS2 C++ Node with OOP](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md). You’ll learn to launch `rqt`, use `rqt_graph` to display nodes graphically, and compare it to `ros2 node list`. The tutorial is based on the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course.
+
+## Prerequisites
+
+- **ROS2 Workspace and Packages**: A ROS2 workspace (e.g., `~/ros2_ws`) with Python (`my_py_pkg`) and C++ (`my_cpp_pkg`) packages, containing nodes (`py_node`, `cpp_node`), as set up in [3.1 - ROS2 Workspace Setup Tutorial](3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md) to [3.8](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md).
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy`. Follow the [official ROS2 installation guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **RQT Installation**: Ensure `rqt` and `rqt_graph` are installed:
+  ```bash
+  sudo apt update
+  sudo apt install ros-jazzy-rqt ros-jazzy-rqt-graph
+  ```
+- **Development Tools**: A terminal emulator (e.g., Terminator) for running multiple nodes:
+  ```bash
+  sudo apt install terminator
+  ```
+- **Terminal**: A `bash`-compatible terminal with the workspace sourced (e.g., `source ~/ros2_ws/install/setup.bash` in `~/.bashrc`). If using `--symlink-install` from [4.3 - Recap on Colcon and Symlink Install](4.3%20-%20Recap%20on%20Colcon%20and%20Symlink%20Install.md), ensure the workspace is sourced after building.
+
+## Step 1: Launch RQT and Explore Plugins
+
+Start `rqt` to explore its graphical interface and available plugins.
+
+1. **Open a Terminal**:
+   Open a terminal and ensure the workspace is sourced:
+   ```bash
+   source ~/.bashrc
+   ```
+   Verify sourcing:
+   ```bash
+   ros2 pkg list | grep my_py_pkg
+   ```
+   Expected output:
+   ```
+   my_py_pkg
+   ```
+
+2. **Launch RQT**:
+   Start `rqt`:
+   ```bash
+   rqt
+   ```
+   - **Output**: A GUI window opens with a menu bar and plugin selection.
+   - **Interface**: The main window is empty until a plugin is loaded. The menu includes options like `Plugins` for loading tools.
+
+3. **Explore Plugins**:
+   In the `rqt` window:
+   - Click `Plugins` in the menu bar.
+   - Browse categories like:
+     - **Introspection**: Includes `Node Graph` (rqt_graph) for visualizing nodes.
+     - **Configuration**: Tools for setting parameters.
+     - **Logging**: Displays node logs.
+     - **Topics/Services**: Tools to test or monitor topics and services.
+   - **Note**: Don’t select a plugin yet; this step is for exploration. Close `rqt` by clicking the window’s close button or pressing Ctrl+C in the terminal.
+
+   ![RQT Interface](images/rqt_interface.png "RQT GUI window showing Plugins menu")
+
+## Step 2: Launch RQT Graph Directly
+
+Use `rqt_graph` to visualize nodes graphically.
+
+1. **Launch RQT Graph**:
+   In a new terminal, start `rqt_graph` directly:
+   ```bash
+   rqt_graph
+   ```
+   - **Output**: A GUI window opens, displaying an empty graph (no nodes running).
+   - **Interface**: The window shows a canvas for nodes and connections, with a toolbar including a **Refresh** button (circular arrow) and a **Debug** checkbox.
+
+2. **Verify Empty Graph**:
+   - The graph is empty, as no nodes are running.
+   - **Debug Checkbox**: By default, `Debug` is checked, hiding internal ROS2 nodes (e.g., `/rqt_gui_py_node`).
+
+   **Note**: If `rqt_graph` fails to open (e.g., `command not found`), ensure `ros-jazzy-rqt-graph` is installed (see Prerequisites).
+
+## Step 3: Visualize Running Nodes
+
+Run nodes and use `rqt_graph` to display them graphically.
+
+1. **Open Multiple Terminals**:
+   Use Terminator to open three terminal panes:
+   ```bash
+   terminator
+   ```
+   Split into three panes (right-click > Split Horizontally/Vertically).
+
+2. **Run Python Node**:
+   In Terminal 1, launch the Python node:
+   ```bash
+   ros2 run my_py_pkg py_node
+   ```
+   - **Output** (from [3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md)):
+     ```
+     [INFO] [timestamp] [py_test]: Hello World
+     [INFO] [timestamp] [py_test]: Hello 0
+     [INFO] [timestamp] [py_test]: Hello 1
+     ...
+     ```
+   - **Troubleshooting**: If “package not found” appears (as in the transcript due to `--symlink-install`), source the workspace:
+     ```bash
+     source ~/ros2_ws/install/setup.bash
+     ros2 run my_py_pkg py_node
+     ```
+
+3. **Refresh RQT Graph**:
+   In Terminal 2, relaunch `rqt_graph` (or use the existing window):
+   ```bash
+   rqt_graph
+   ```
+   - Click the **Refresh** button (circular arrow) in the `rqt_graph` toolbar.
+   - **Output**: The graph shows a single node labeled `/py_test`.
+   - **Note**: If the node doesn’t appear, ensure the terminal running `py_node` is sourced and refresh again.
+
+4. **Run C++ Node**:
+   In Terminal 3, launch the C++ node:
+   ```bash
+   ros2 run my_cpp_pkg cpp_node
+   ```
+   - **Output** (from [3.8](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md)):
+     ```
+     [INFO] [timestamp] [cpp_test]: Hello World
+     [INFO] [timestamp] [cpp_test]: Hello 0
+     [INFO] [timestamp] [cpp_test]: Hello 1
+     ...
+     ```
+
+5. **Refresh RQT Graph Again**:
+   In the `rqt_graph` window, click **Refresh**.
+   - **Output**: The graph now shows two nodes: `/py_test` and `/cpp_test`.
+   - **Appearance**: Nodes are displayed as boxes or ovals, with no connections (arrows) between them, as they don’t yet use topics or services.
+
+   ![RQT Graph Nodes](images/rqt_graph_nodes.png "RQT Graph showing /py_test and /cpp_test nodes")
+
+6. **Stop Nodes**:
+   Press Ctrl+C in Terminals 1 and 3 to stop `py_node` and `cpp_node`. Refresh `rqt_graph` to confirm the graph is empty.
+
+## Step 4: Explore Debug Nodes
+
+Use the `Debug` checkbox to view internal ROS2 nodes, such as the `rqt` node itself.
+
+1. **Run Nodes Again**:
+   In Terminal 1:
+   ```bash
+   ros2 run my_py_pkg py_node
+   ```
+   In Terminal 3:
+   ```bash
+   ros2 run my_cpp_pkg cpp_node
+   ```
+
+2. **Launch RQT Graph**:
+   In Terminal 2, ensure `rqt_graph` is running:
+   ```bash
+   rqt_graph
+   ```
+
+3. **Uncheck Debug**:
+   In the `rqt_graph` window:
+   - Uncheck the **Debug** checkbox in the toolbar.
+   - Click **Refresh**.
+   - **Output**: Additional nodes appear, including:
+     - `/rqt_gui_py_node`: The `rqt_graph` node itself, as `rqt` runs as a ROS2 node.
+     - `/ros2cli_daemon`: A background daemon for ROS2 CLI operations.
+     - Arrows pointing to `/rosout`: Indicates nodes publishing to the `/rosout` topic for logging (all nodes log to `/rosout` by default).
+   - **Explanation**: Debug nodes are hidden by default to simplify the graph, but unchecking `Debug` reveals internal ROS2 infrastructure.
+
+4. **Check Debug**:
+   Recheck the **Debug** checkbox and refresh.
+   - **Output**: Only `/py_test` and `/cpp_test` remain, as debug nodes are hidden again.
+
+   ![RQT Graph Debug](images/rqt_graph_debug.png "RQT Graph with Debug unchecked, showing /rqt_gui_py_node and /rosout")
+
+5. **Stop Everything**:
+   - Press Ctrl+C in Terminals 1 and 3 to stop `py_node` and `cpp_node`.
+   - Close `rqt_graph` by clicking the window’s close button or pressing Ctrl+C in Terminal 2.
+
+## Key Concepts
+
+- **RQT**: A GUI tool for ROS2 introspection and interaction, offering plugins like `rqt_graph`, `rqt_topic`, and `rqt_service` for various tasks.
+- **RQT Graph**: A plugin to visualize the ROS2 node graph, showing nodes and their connections (e.g., topics, services), similar to `ros2 node list` but graphical.
+- **Node Visualization**: Nodes appear as boxes/ovals, with arrows indicating communication (e.g., `/rosout` for logging). No arrows between `/py_test` and `/cpp_test` yet, as they lack topics/services.
+- **Debug Checkbox**: Hides/shows internal nodes (e.g., `/rqt_gui_py_node`, `/ros2cli_daemon`) to simplify or expand the graph.
+- **Comparison to CLI**: `rqt_graph` provides a global, visual overview, complementing `ros2 node list` and `ros2 node info` for easier debugging.
+- **Sourcing**: Required after `--symlink-install` (from [4.3](4.3%20-%20Recap%20on%20Colcon%20and%20Symlink%20Install.md)) to access updated packages, as noted in the transcript.
+
+## Notes
+
+- **Sourcing Requirement**: The transcript’s sourcing issue after `--symlink-install` is accurate. Always source `~/ros2_ws/install/setup.bash` after building, as reinforced in [4.1](4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md).
+- **RQT Installation**: `rqt` and `rqt_graph` are not always installed by default in minimal ROS2 setups. The tutorial includes installation commands for clarity.
+- **RQT Graph Node**: The transcript correctly notes that `rqt_graph` runs as a node (`/rqt_gui_py_node`), visible when `Debug` is unchecked.
+- **Rosout Topic**: The `/rosout` topic, shown in the debug view, is the default logging topic for all ROS2 nodes, as per the [ROS2 Logging Guide](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-ROS2-Logging.html).
+- **No Connections**: The nodes from [3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md) and [3.8](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md) only use timers, so no topic/service connections appear in `rqt_graph`, matching the transcript’s “no communications yet.”
+- **Terminator**: Multiple terminals enhance demonstration clarity, as in [4.1](4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md). Install via `sudo apt install terminator`.
+- **Future Use**: The transcript’s promise to revisit `rqt_graph` aligns with future tutorials on topics/services, where node connections will be visible.
+- **Transcript Clarifications**:
+  - “RqT” and “RqT graph” are corrected to `rqt` and `rqt_graph`.
+  - “pi pkg PG” and “CP node” are clarified as `my_py_pkg` and `cpp_node`.
+  - “Simulink install” is corrected to `--symlink-install`, referencing [4.3](4.3%20-%20Recap%20on%20Colcon%20and%20Symlink%20Install.md).
+  - “Joy pie node” is clarified as `/rqt_gui_py_node`, the `rqt` node.
+  - “Ros2 command line daemon” is clarified as `/ros2cli_daemon`.
+
+## Next Steps
+
+You’ve learned to use `rqt` and `rqt_graph` for graphical node introspection. In future tutorials, you’ll:
+- Add **topics** to your nodes ([3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md), [3.8](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md)) and visualize their connections in `rqt_graph`.
+- Explore other `rqt` plugins (e.g., `rqt_topic`, `rqt_service`) for topic and service interaction.
+- Use **parameters** with `--ros-args -p`, as hinted in [4.2](4.2%20-%20Renaming%20a%20Node%20at%20Runtime.md).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or continue with the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

@@ -1,0 +1,217 @@
+# 4.2 - Renaming a Node at Runtime
+
+This tutorial teaches you how to rename ROS2 nodes at runtime using the `ros2 run` command with the `--ros-args` option, addressing the issue of duplicate node names highlighted in [4.1 - Introspecting Nodes with ROS2 CLI](4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md). You’ll learn why duplicate node names cause problems, how to use node remapping to launch multiple instances of the same node (e.g., for multiple temperature sensors), and the benefits of runtime renaming. The tutorial uses the Python node from [3.6 - Creating a ROS2 Python Node with OOP](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md) and is based on the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course.
+
+## Prerequisites
+
+- **ROS2 Workspace and Packages**: A ROS2 workspace (e.g., `~/ros2_ws`) with a Python package (`my_py_pkg`) containing the `py_node` executable, as set up in [3.1 - ROS2 Workspace Setup Tutorial](3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md).
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy`. Follow the [official ROS2 installation guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Development Tools**: A terminal emulator (e.g., Terminator, for multiple panes) and a text editor (e.g., VSCode) if needed:
+  ```bash
+  sudo apt install terminator
+  sudo snap install code --classic
+  ```
+- **Terminal**: A `bash`-compatible terminal with the workspace sourced (e.g., `source ~/ros2_ws/install/setup.bash` in `~/.bashrc`).
+
+## Step 1: Demonstrate Duplicate Node Name Issue
+
+Understand the problem of running multiple instances of a node with the same name.
+
+1. **Open Multiple Terminals**:
+   Use Terminator to open three terminal panes for running nodes and introspection:
+   ```bash
+   terminator
+   ```
+   Split the window into three panes (right-click > Split Horizontally/Vertically, or see the course’s installation section).
+
+2. **Run the Python Node**:
+   In Terminal 1, launch the Python node:
+   ```bash
+   ros2 run my_py_pkg py_node
+   ```
+   - **Output** (from [3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md)):
+     ```
+     [INFO] [timestamp] [py_test]: Hello World
+     [INFO] [timestamp] [py_test]: Hello 0
+     [INFO] [timestamp] [py_test]: Hello 1
+     ...
+     ```
+   - **Node Name**: The node is named `/py_test`, as set in the code (`Node("py_test")`).
+
+3. **Run a Second Instance**:
+   In Terminal 2, launch another instance of the same node:
+   ```bash
+   ros2 run my_py_pkg py_node
+   ```
+   - **Output**: The second instance starts, showing the same logs (`[py_test]: Hello World`, etc.).
+   - **Behavior**: Unlike the transcript’s expectation, both nodes may appear to run without immediate errors in ROS2 Jazzy, due to ROS2’s handling of duplicate names (see Fact-Checking Notes).
+
+4. **Check Node List**:
+   In Terminal 3, list running nodes:
+   ```bash
+   ros2 node list
+   ```
+   - **Output**:
+     ```
+     /py_test
+     ```
+   - **Warning** (may appear in terminal or logs):
+     ```
+     [WARNING] [rcl]: Be aware that there are nodes in the graph that share an exact name, this can have unintended side effects
+     ```
+   - **Explanation**: ROS2 detects duplicate node names (`/py_test`). While both nodes may run, duplicate names can cause communication issues (e.g., topic conflicts) or unexpected behavior, as warned.
+
+   ![Duplicate Node Warning](images/duplicate_node_warning.png "Terminal showing ros2 node list with duplicate name warning")
+
+5. **Stop Nodes**:
+   Press Ctrl+C in Terminals 1 and 2 to stop both instances of `py_node`.
+
+## Step 2: Rename a Node at Runtime
+
+Use the `--ros-args` option with `ros2 run` to remap the node name, avoiding duplicates.
+
+1. **Run Node with Default Name**:
+   In Terminal 1, launch the Python node without remapping:
+   ```bash
+   ros2 run my_py_pkg py_node
+   ```
+   - Output shows `[py_test]` logging.
+
+2. **Run Node with Remapped Name**:
+   In Terminal 2, launch another instance with a new node name:
+   ```bash
+   ros2 run my_py_pkg py_node --ros-args -r __node:=abc
+   ```
+   - **Command Breakdown**:
+     - `--ros-args`: Indicates ROS2-specific arguments follow.
+     - `-r`: Short for `--remap`, used for renaming nodes, topics, etc.
+     - `__node:=abc`: Remaps the node name from `py_test` to `abc`.
+   - **Output**:
+     ```
+     [INFO] [timestamp] [abc]: Hello World
+     [INFO] [timestamp] [abc]: Hello 0
+     [INFO] [timestamp] [abc]: Hello 1
+     ...
+     ```
+     The node logs as `[abc]`, confirming the remapped name.
+
+   **Alternative Syntax**: Use the full `--remap` option:
+   ```bash
+   ros2 run my_py_pkg py_node --ros-args --remap __node:=abc
+   ```
+   This produces the same result.
+
+3. **Verify Node Names**:
+   In Terminal 3, list nodes:
+   ```bash
+   ros2 node list
+   ```
+   - **Output**:
+     ```
+     /abc
+     /py_test
+     ```
+   - **Explanation**: The two nodes have unique names, avoiding conflicts. The remapped node appears as `/abc`, and the default node as `/py_test`.
+
+   ![Remapped Node List](images/remapped_node_list.png "Terminal showing ros2 node list with /py_test and /abc")
+
+4. **Stop Nodes**:
+   Press Ctrl+C in Terminals 1 and 2 to stop both nodes.
+
+## Step 3: Simulate Multiple Temperature Sensors
+
+Apply node remapping to a practical use case: launching multiple instances of a temperature sensor node.
+
+1. **Scenario**:
+   Assume `py_node` is a temperature sensor node. You have two sensors and want to run two instances with names `temperature_sensor_1` and `temperature_sensor_2`.
+
+2. **Run First Sensor**:
+   In Terminal 1, launch the node as `temperature_sensor_1`:
+   ```bash
+   ros2 run my_py_pkg py_node --ros-args -r __node:=temperature_sensor_1
+   ```
+   - Output shows `[temperature_sensor_1]` logging.
+
+3. **Run Second Sensor**:
+   In Terminal 2, launch the node as `temperature_sensor_2`:
+   ```bash
+   ros2 run my_py_pkg py_node --ros-args -r __node:=temperature_sensor_2
+   ```
+   - Output shows `[temperature_sensor_2]` logging.
+
+4. **Verify Node Names**:
+   In Terminal 3, list nodes:
+   ```bash
+   ros2 node list
+   ```
+   - **Output**:
+     ```
+     /temperature_sensor_1
+     /temperature_sensor_2
+     ```
+   - **Explanation**: Both nodes run with unique, meaningful names, simulating two temperature sensors without conflicts.
+
+   ![Temperature Sensor Nodes](images/temperature_sensor_nodes.png "Terminal showing ros2 node list with /temperature_sensor_1 and /temperature_sensor_2")
+
+5. **Stop Nodes**:
+   Press Ctrl+C in Terminals 1 and 2 to stop both nodes.
+
+## Step 4: Explore ros2 run Options
+
+Learn additional details about `ros2 run` and `--ros-args` for future use.
+
+1. **Get Help**:
+   Check the `ros2 run` options:
+   ```bash
+   ros2 run --help
+   ```
+   - Output includes:
+     ```
+     usage: ros2 run [-h] [--prefix PREFIX] package_name executable_name ...
+
+     Run a package's executable
+     ...
+     --ros-args    Flag for specifying ROS arguments
+     ```
+   - Note the `--ros-args` flag for passing ROS-specific arguments like remapping.
+
+2. **Future Remapping**:
+   The transcript hints at remapping other ROS2 entities (e.g., topics, services) using similar syntax:
+   ```bash
+   ros2 run <package> <executable> --ros-args -r <entity>:=<new_name>
+   ```
+   Example (for topics, covered later):
+   ```bash
+   ros2 run my_pkg my_node --ros-args -r /topic:=/new_topic
+   ```
+
+3. **Parameters**:
+   The transcript mentions parameters, which can also be set via `--ros-args` (e.g., `-p param_name:=value`). This will be covered in future tutorials.
+
+## Key Concepts
+
+- **Duplicate Node Names**: Running multiple nodes with the same name (e.g., `/py_test`) causes warnings and potential communication issues, as ROS2 enforces unique names.
+- **Node Remapping**: The `--ros-args -r __node:=<new_name>` option renames a node at runtime, overriding the code’s default name (e.g., `py_test` to `abc`).
+- **Use Case**: Remapping is ideal for running multiple instances of a node (e.g., temperature sensors) with unique names, avoiding code changes.
+- **Dynamic Configuration**: Remapping requires no recompilation or reinstallation, making it flexible for dynamic setups.
+- **--ros-args**: A versatile flag for passing ROS2 arguments, including remapping and parameters, used throughout ROS2 applications.
+- **Autocompletion**: Use Tab to complete `ros2`, package, and executable names, assuming the workspace is sourced.
+
+## Notes
+
+- **Sourcing Requirement**: Ensure `~/ros2_ws/install/setup.bash` is sourced in `~/.bashrc` or manually to access `my_py_pkg`. Verify with `ros2 pkg list | grep my_py_pkg`.
+- **Node Name Behavior**: In ROS2 Jazzy, duplicate node names may not immediately terminate the older node (unlike some earlier distributions), but warnings and side effects occur, as noted in the transcript.
+- **Remapping Syntax**: Both `-r` and `--remap` are valid; `-r` is shorter and commonly used. The `__node:=<name>` syntax is standard for node remapping.
+- **Temperature Sensor Example**: The transcript’s example is hypothetical, as `py_node` only logs messages. Real sensor nodes would use topics/services, covered later.
+- **Future Topics**: The transcript’s mention of remapping topics/services and setting parameters via `--ros-args` aligns with ROS2’s CLI capabilities, to be explored in future tutorials.
+- **Terminator**: Multiple terminals enhance demonstration clarity. Install via `sudo apt install terminator` if not already set up.
+
+## Next Steps
+
+You’ve learned to rename nodes at runtime to avoid name conflicts and support multiple instances. In future tutorials, you’ll:
+- Explore **namespaces** to organize nodes (e.g., `/sensor1/py_test` vs. `/sensor2/py_test`).
+- Remap **topics** and **services** using `--ros-args -r`.
+- Set **parameters** via `--ros-args -p` for node configuration.
+- Add topics to your nodes ([3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md), [3.8](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md)) and inspect them with `ros2 node info`.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or continue with the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

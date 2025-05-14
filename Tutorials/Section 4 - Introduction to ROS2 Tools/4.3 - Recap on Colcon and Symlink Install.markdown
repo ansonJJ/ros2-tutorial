@@ -1,0 +1,249 @@
+# 4.3 - Recap on Colcon and Symlink Install
+
+This tutorial recaps the use of `colcon` to build ROS2 workspaces, emphasizing the correct build location and selective package building, as introduced in [3.1 - ROS2 Workspace Setup Tutorial](3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md) to [3.8 - Creating a ROS2 C++ Node with OOP](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md). It also introduces the `--symlink-install` option for Python packages, which speeds up development by linking source files directly, eliminating the need to rebuild after code changes. The tutorial uses the Python package (`my_py_pkg`) from [3.2 - Creating a ROS2 Python Package](3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md) and [3.6 - Creating a ROS2 Python Node with OOP](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md) and is based on the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course.
+
+## Prerequisites
+
+- **ROS2 Workspace and Packages**: A ROS2 workspace (e.g., `~/ros2_ws`) with Python (`my_py_pkg`) and C++ (`my_cpp_pkg`) packages, containing nodes (`py_node`, `cpp_node`), as set up in [3.1](3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md) to [3.8](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md).
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy`. Follow the [official ROS2 installation guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Development Tools**: A terminal emulator (e.g., Terminator) and Visual Studio Code (VSCode) for editing Python files:
+  ```bash
+  sudo apt install terminator
+  sudo snap install code --classic
+  ```
+  Ensure the ROS extension (`ms-vscode.ros`) is installed for Python autocompletion:
+  ```bash
+  code --install-extension ms-vscode.ros
+  ```
+- **Terminal**: A `bash`-compatible terminal with the workspace sourced (e.g., `source ~/ros2_ws/install/setup.bash` in `~/.bashrc`).
+
+## Step 1: Recap Colcon Build Basics
+
+Review the essentials of building ROS2 workspaces with `colcon`.
+
+1. **Navigate to Workspace Root**:
+   Always build from the workspace root (`~/ros2_ws`), not inside `src` or package folders:
+   ```bash
+   cd ~/ros2_ws
+   ```
+   - **Why**: Building from `~/ros2_ws` ensures `build/`, `install/`, and `log/` folders are created correctly. Building elsewhere causes misplaced folders and errors.
+
+   **Verify**: Check for the `src` folder containing packages:
+   ```bash
+   ls src
+   ```
+   Expected output:
+   ```
+   my_cpp_pkg  my_py_pkg
+   ```
+
+   ![Workspace Root](images/workspace_root.png "Terminal showing ls src with my_py_pkg and my_cpp_pkg")
+
+2. **Build All Packages**:
+   Build all packages in `src`:
+   ```bash
+   colcon build
+   ```
+   - **Output**: Builds `my_py_pkg` and `my_cpp_pkg`, showing logs like “Starting >>> my_py_pkg” and “Finished <<< my_cpp_pkg”.
+   - **Result**: Executables are updated in `~/ros2_ws/install/my_py_pkg/lib/my_py_pkg/` and `~/ros2_ws/install/my_cpp_pkg/lib/my_cpp_pkg/`.
+
+3. **Selective Package Build**:
+   Build only specific packages to save time:
+   ```bash
+   colcon build --packages-select my_cpp_pkg
+   ```
+   - **Output**: Only `my_cpp_pkg` is built, skipping `my_py_pkg`.
+   - **Multiple Packages**: Build multiple packages by listing them:
+     ```bash
+     colcon build --packages-select my_py_pkg my_cpp_pkg
+     ```
+
+   **Autocompletion**: Use Tab to complete package names (e.g., `my_py_pkg`).
+
+4. **Source the Workspace**:
+   After building, source the workspace to update the environment:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ```
+   Alternatively, open a new terminal if `~/.bashrc` includes the source line (from [3.1](3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md)).
+
+## Step 2: Use --symlink-install for Python Packages
+
+Learn the `--symlink-install` option to speed up Python node development by linking source files directly.
+
+1. **Build with --symlink-install**:
+   Build the Python package with the `--symlink-install` option:
+   ```bash
+   colcon build --packages-select my_py_pkg --symlink-install
+   ```
+   - **Command Breakdown**:
+     - `--packages-select my_py_pkg`: Builds only `my_py_pkg`.
+     - `--symlink-install`: Creates symbolic links to Python source files in `~/ros2_ws/src/my_py_pkg/` instead of copying them to `~/ros2_ws/install/`.
+   - **Output**: Similar to a standard build, showing “Starting >>> my_py_pkg” and “Finished <<< my_py_pkg”.
+   - **Result**: The executable `py_node` in `~/ros2_ws/install/my_py_pkg/lib/my_py_pkg/` links to `~/ros2_ws/src/my_py_pkg/my_py_pkg/my_first_node.py`.
+
+   **Autocompletion**: Use Tab to complete `--symlink-install`.
+
+2. **Source the Workspace**:
+   Source the environment to access the updated package:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ```
+
+3. **Run the Python Node**:
+   Launch the node to verify:
+   ```bash
+   ros2 run my_py_pkg py_node
+   ```
+   - **Output** (from [3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md)):
+     ```
+     [INFO] [timestamp] [py_test]: Hello World
+     [INFO] [timestamp] [py_test]: Hello 0
+     [INFO] [timestamp] [py_test]: Hello 1
+     ...
+     ```
+   - Stop with Ctrl+C.
+
+   ![Node Run Output](images/node_run_output_symlink.png "Terminal showing ros2 run my_py_pkg py_node output")
+
+## Step 3: Test Symlink Install Behavior
+
+Modify the Python node without rebuilding to demonstrate the `--symlink-install` advantage.
+
+1. **Open VSCode**:
+   Open the workspace source folder in VSCode for editing:
+   ```bash
+   cd ~/ros2_ws/src
+   code .
+   ```
+
+2. **Edit the Python Node**:
+   Open `~/ros2_ws/src/my_py_pkg/my_py_pkg/my_first_node.py` in VSCode. Modify the log message in the `timer_callback` method (line ~15) to add letters, as suggested in the transcript:
+   ```python
+   # Original
+   self.get_logger().info(f"Hello {self.counter}")
+
+   # Modified
+   self.get_logger().info(f"Hello ABC {self.counter}")
+   ```
+   Save the file (Ctrl+S).
+
+   **Note**: If you don’t have the exact code from [3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md), here’s the full expected code for reference:
+   ```python
+   import rclpy
+   from rclpy.node import Node
+
+   class MyNode(Node):
+       def __init__(self):
+           super().__init__('py_test')
+           self.counter = 0
+           self.get_logger().info('Hello World')
+           self.create_timer(1.0, self.timer_callback)
+
+       def timer_callback(self):
+           self.get_logger().info(f"Hello ABC {self.counter}")
+           self.counter += 1
+
+   def main(args=None):
+       rclpy.init(args=args)
+       node = MyNode()
+       rclpy.spin(node)
+       rclpy.shutdown()
+
+   if __name__ == '__main__':
+       main()
+   ```
+
+3. **Run the Modified Node**:
+   Without rebuilding, run the node again:
+   ```bash
+   ros2 run my_py_pkg py_node
+   ```
+   - **Output**:
+     ```
+     [INFO] [timestamp] [py_test]: Hello World
+     [INFO] [timestamp] [py_test]: Hello ABC 0
+     [INFO] [timestamp] [py_test]: Hello ABC 1
+     ...
+     ```
+   - **Explanation**: The modified log message (`Hello ABC`) appears immediately, as `ros2 run` uses the source file directly via the symlink. No `colcon build` is needed.
+
+   ![Modified Node Output](images/modified_node_output.png "Terminal showing ros2 run with modified Hello ABC output")
+
+4. **Stop the Node**:
+   Press Ctrl+C to stop the node.
+
+## Step 4: Understand Symlink Install Limitations
+
+Learn the constraints and warnings associated with `--symlink-install`.
+
+1. **When to Use**:
+   - **Development Phase**: Ideal for rapid iteration during Python node development, as changes take effect without rebuilding.
+   - **Not for Production**: In production, avoid `--symlink-install` to ensure all files are copied to `~/ros2_ws/install/`, guaranteeing portability and stability.
+
+2. **Python Only**:
+   - Works only for Python packages (e.g., `my_py_pkg`), as Python is interpreted, not compiled.
+   - Does not apply to C++ packages (e.g., `my_cpp_pkg`), which require compilation (`colcon build`) to update executables.
+
+3. **Initial Build Required**:
+   - New nodes or packages must be built at least once with `colcon build --symlink-install` to set up the symlinks and install dependencies.
+
+4. **Potential Issues**:
+   - The transcript warns of bugs with `--symlink-install`, which can occur due to:
+     - **Stale Symlinks**: If source files are moved or deleted, symlinks break, causing `ros2 run` errors.
+     - **Dependency Issues**: Missing or outdated dependencies may not be reinstalled without a full build.
+     - **Caching**: Python’s module caching may lead to inconsistent behavior.
+   - **Troubleshooting**:
+     - If `ros2 run` fails or shows old behavior, rebuild without `--symlink-install`:
+       ```bash
+       colcon build --packages-select my_py_pkg
+       source ~/ros2_ws/install/setup.bash
+       ```
+     - Check for errors in `~/ros2_ws/log` or the terminal output.
+     - Avoid using `--symlink-install` if issues persist.
+
+5. **Standard Workflow**:
+   - If `--symlink-install` causes problems, use the standard build-source-run cycle:
+     ```bash
+     colcon build --packages-select my_py_pkg
+     source ~/ros2_ws/install/setup.bash
+     ros2 run my_py_pkg py_node
+     ```
+
+## Key Concepts
+
+- **Colcon Build Location**: Always run `colcon build` from `~/ros2_ws` to ensure correct folder structure (`build/`, `install/`, `log/`).
+- **Selective Building**: Use `--packages-select` to build specific packages, saving time.
+- **Symlink Install**: The `--symlink-install` option links Python source files directly, allowing changes without rebuilding, ideal for development.
+- **Python-Specific**: Only works for Python packages, as C++ requires compilation.
+- **Development vs. Production**: Use `--symlink-install` for rapid prototyping, but avoid in production for stability.
+- **Potential Bugs**: `--symlink-install` may cause issues (e.g., stale symlinks, caching); revert to standard builds if problems occur.
+- **Autocompletion**: Tab completion for `colcon build` options (e.g., `--symlink-install`) and package names enhances efficiency.
+
+## Notes
+
+- **Sourcing Importance**: Source `~/ros2_ws/install/setup.bash` after building to update executables, as reinforced in [4.1](4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md).
+- **Symlink Mechanics**: `--symlink-install` creates symlinks in `~/ros2_ws/install/my_py_pkg/lib/my_py_pkg/` pointing to `~/ros2_ws/src/my_py_pkg/my_py_pkg/`. Verify with:
+  ```bash
+  ls -l ~/ros2_ws/install/my_py_pkg/lib/my_py_pkg/
+  ```
+  Look for `my_first_node.py -> ~/ros2_ws/src/my_py_pkg/my_py_pkg/my_first_node.py`.
+- **Python Node Reference**: The tutorial assumes the `py_node` from [3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md), with a timer-based logger. The transcript’s “Hello space zero” is clarified as `Hello 0`.
+- **C++ Exclusion**: The transcript correctly notes that `--symlink-install` doesn’t apply to C++ due to compilation requirements, as in [3.8](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md).
+- **Bug Warning**: The transcript’s caution about `--symlink-install` bugs is valid, as documented in [Colcon Issues](https://github.com/colcon/colcon-core/issues). The tutorial provides troubleshooting steps.
+- **VSCode**: Opening `~/ros2_ws/src` in VSCode ensures ROS extension autocompletion for `rclpy`, as set up in [3.5](3.5%20-%20Creating%20a%20ROS2%20Python%20Node.md).
+- **Transcript Clarifications**:
+  - “Click on Space and Build” is corrected to `colcon build`.
+  - “pi pg” and “CP pg” are clarified as `my_py_pkg` and `my_cpp_pkg`.
+  - “pi node” is clarified as `py_node`.
+  - “Simulink install” is corrected to `--symlink-install`.
+  - The transcript’s warning about building only from `~/ros2_ws` is emphasized for clarity.
+
+## Next Steps
+
+You’ve recapped `colcon` usage and learned to use `--symlink-install` for faster Python node development. In future tutorials, you’ll:
+- Explore **ROS2 topics** to enable communication between nodes, extending [3.6](3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md) and [3.8](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md).
+- Use **parameters** with `--ros-args -p`, as hinted in [4.2](4.2%20-%20Renaming%20a%20Node%20at%20Runtime.md).
+- Inspect topics and parameters with `ros2 topic` and `ros2 param` CLI commands.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or continue with the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

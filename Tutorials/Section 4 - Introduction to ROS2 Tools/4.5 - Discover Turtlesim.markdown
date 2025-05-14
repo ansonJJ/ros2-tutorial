@@ -1,0 +1,219 @@
+# 4.5 - Discover Turtlesim
+
+This tutorial introduces the `turtlesim` package, a simplified 2D robot simulator in ROS2, and applies tools from Section 4 ([4.1](4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) to [4.4](4.4%20-%20Using%20RQT%20and%20RQT%20Graph.md)) to explore its nodes and communication. You’ll launch the `turtlesim` node to display a turtle, control it using a teleoperation node, visualize node interactions with `rqt_graph`, and experiment with node remapping. The tutorial previews ROS2 topics and prepares for a final course project using `turtlesim`. It is based on the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course.
+
+## Prerequisites
+
+- **ROS2 Workspace and Packages**: A ROS2 workspace (e.g., `~/ros2_ws`) with Python (`my_py_pkg`) and C++ (`my_cpp_pkg`) packages, as set up in [3.1 - ROS2 Workspace Setup Tutorial](3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md) to [3.8 - Creating a ROS2 C++ Node with OOP](3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md). While not directly used, sourcing ensures a consistent environment.
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy`, including the desktop variant (which includes `turtlesim`). Follow the [official ROS2 installation guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Turtlesim Installation**: Ensure `turtlesim` is installed (included in `ros-jazzy-desktop`):
+  ```bash
+  sudo apt update
+  sudo apt install ros-jazzy-turtlesim
+  ```
+- **RQT Installation**: Ensure `rqt_graph` is installed for visualization (from [4.4](4.4%20-%20Using%20RQT%20and%20RQT%20Graph.md)):
+  ```bash
+  sudo apt install ros-jazzy-rqt ros-jazzy-rqt-graph
+  ```
+- **Development Tools**: A terminal emulator (e.g., Terminator) for running multiple nodes:
+  ```bash
+  sudo apt install terminator
+  ```
+- **Terminal**: A `bash`-compatible terminal with the ROS2 environment sourced:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  If using `~/ros2_ws`, ensure it’s sourced (from [3.1](3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md)):
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+
+## Step 1: Launch the Turtlesim Node
+
+Start the `turtlesim` node to display a turtle in a graphical window.
+
+1. **Open a Terminal**:
+   Open a terminal and verify sourcing:
+   ```bash
+   ros2 pkg list | grep turtlesim
+   ```
+   Expected output:
+   ```
+   turtlesim
+   ```
+
+2. **Run Turtlesim Node**:
+   Launch the `turtlesim` node:
+   ```bash
+   ros2 run turtlesim turtlesim_node
+   ```
+   - **Command Breakdown**:
+     - `turtlesim`: Package name (use Tab for autocompletion).
+     - `turtlesim_node`: Executable name.
+   - **Output**: A GUI window opens, showing a blue background with a turtle in the center. Terminal logs show:
+     ```
+     [INFO] [timestamp] [turtlesim]: Starting turtlesim with node name /turtlesim
+     [INFO] [timestamp] [turtlesim]: Spawning turtle [turtle1] at x=[5.544445], y=[5.544445], theta=[0.000000]
+     ```
+   - **Troubleshooting**: If “package ‘turtlesim’ not found” appears, install it:
+     ```bash
+     sudo apt install ros-jazzy-turtlesim
+     source /opt/ros/jazzy/setup.bash
+     ros2 run turtlesim turtlesim_node
+     ```
+
+   **Note**: Position the `turtlesim` window to the side for visibility, as suggested in the transcript.
+
+   ![Turtlesim Window](images/turtlesim_window.png "Turtlesim GUI window showing turtle1")
+
+## Step 2: Control the Turtle with Teleoperation
+
+Launch the `turtle_teleop_key` node to control the turtle using keyboard inputs.
+
+1. **Open a Second Terminal**:
+   In Terminator, split the window into two panes (right-click > Split Horizontally) or open a new terminal:
+   ```bash
+   terminator
+   ```
+
+2. **Run Teleoperation Node**:
+   In the second terminal, launch the teleoperation node:
+   ```bash
+   ros2 run turtlesim turtle_teleop_key
+   ```
+   - **Command Breakdown**:
+     - `turtlesim`: Package name.
+     - `turtle_teleop_key`: Executable name (use Tab for autocompletion).
+   - **Output**: The terminal displays instructions:
+     ```
+     Reading from keyboard
+     ---------------------------
+     Use arrow keys to move the turtle.
+     ...
+     ```
+   - **Node Name**: The node is named `/teleop_turtle`.
+
+3. **Control the Turtle**:
+   - Ensure the teleoperation terminal is selected (click it to focus).
+   - Press the arrow keys (Up, Down, Left, Right).
+   - **Result**: The turtle moves in the `turtlesim` window:
+     - Up/Down: Moves forward/backward.
+     - Left/Right: Rotates counterclockwise/clockwise.
+   - **Observation**: The turtle’s position and orientation update in real-time, indicating communication between the teleoperation node and the `turtlesim` node.
+
+   **Note**: If the turtle doesn’t move, ensure the teleoperation terminal is focused, not the `turtlesim` window or another terminal.
+
+   ![Turtle Movement](images/turtle_movement.png "Turtlesim window showing turtle1 moving with trail")
+
+## Step 3: Visualize Node Communication with RQT Graph
+
+Use `rqt_graph` to visualize the nodes and their topic-based communication.
+
+1. **Open a Third Terminal**:
+   In Terminator, split into a third pane or open a new terminal.
+
+2. **Launch RQT Graph**:
+   Run `rqt_graph`:
+   ```bash
+   rqt_graph
+   ```
+   - **Output**: A GUI window opens, showing the ROS2 node graph.
+   - **Toolbar Options**:
+     - **Refresh** button (circular arrow): Updates the graph.
+     - **View Mode**: Dropdown to select “Nodes only” or “Nodes/Topics” (default is “Nodes/Topics”).
+
+3. **Inspect the Graph**:
+   - Click **Refresh** or select “Nodes/Topics” from the dropdown.
+   - **Output**: The graph shows:
+     - Nodes:
+       - `/turtlesim`: The `turtlesim_node`.
+       - `/teleop_turtle`: The `turtle_teleop_key` node.
+     - Connection:
+       - An arrow from `/teleop_turtle` to `/turtlesim` via the topic `/turtle1/cmd_vel`.
+   - **Explanation**:
+     - The `/turtle1/cmd_vel` topic carries velocity commands (type `geometry_msgs/msg/Twist`) from `/teleop_turtle` (publisher) to `/turtlesim` (subscriber), enabling turtle movement.
+     - This introduces ROS2 topics, to be covered in the next section.
+
+   ![RQT Graph Turtlesim](images/rqt_graph_turtlesim.png "RQT Graph showing /turtlesim, /teleop_turtle, and /turtle1/cmd_vel topic")
+
+4. **Compare to CLI**:
+   For reference, check nodes with the CLI:
+   ```bash
+   ros2 node list
+   ```
+   Expected output:
+   ```
+   /teleop_turtle
+   /turtlesim
+   ```
+   - **Note**: `rqt_graph` provides a graphical view of nodes and topics, complementing `ros2 node list`.
+
+## Step 4: Experiment with Node Remapping
+
+Apply node remapping from [4.2](4.2%20-%20Renaming%20a%20Node%20at%20Runtime.md) to rename the teleoperation node and observe the change in `rqt_graph`.
+
+1. **Stop Teleoperation Node**:
+   In the teleoperation terminal (Terminal 2), press Ctrl+C to stop `turtle_teleop_key`.
+
+2. **Relaunch with Remapped Name**:
+   Run the teleoperation node with a new name:
+   ```bash
+   ros2 run turtlesim turtle_teleop_key --ros-args -r __node:=my_turtle
+   ```
+   - **Command Breakdown**:
+     - `--ros-args -r __node:=my_turtle`: Renames the node from `/teleop_turtle` to `/my_turtle`.
+   - **Output**: The terminal shows the same keyboard instructions, and the turtle responds to arrow keys.
+
+3. **Refresh RQT Graph**:
+   In the `rqt_graph` window, click **Refresh**.
+   - **Output**: The graph updates to show:
+     - `/turtlesim` (unchanged).
+     - `/my_turtle` (replacing `/teleop_turtle`).
+     - The `/turtle1/cmd_vel` topic connecting `/my_turtle` to `/turtlesim`.
+   - **Observation**: The renamed node functions identically, sending velocity commands to the turtle, and the graph reflects the new name.
+
+   ![RQT Graph Remapped](images/rqt_graph_remapped.png "RQT Graph showing /turtlesim, /my_turtle, and /turtle1/cmd_vel topic")
+
+4. **Stop All Nodes**:
+   - Press Ctrl+C in Terminal 1 to stop `turtlesim_node`.
+   - Press Ctrl+C in Terminal 2 to stop the remapped `turtle_teleop_key`.
+   - Close `rqt_graph` by clicking the window’s close button or pressing Ctrl+C in Terminal 3.
+
+## Key Concepts
+
+- **Turtlesim**: A 2D robot simulator in ROS2, displaying a turtle that moves based on velocity commands, ideal for learning ROS2 concepts.
+- **Turtlesim Node**: The `turtlesim_node` creates a GUI window and spawns a turtle (`turtle1`), listening for commands on the `/turtle1/cmd_vel` topic.
+- **Teleoperation Node**: The `turtle_teleop_key` node reads keyboard inputs and publishes velocity commands to `/turtle1/cmd_vel`, controlling the turtle.
+- **Topic Communication**: The `/turtle1/cmd_vel` topic (type `geometry_msgs/msg/Twist`) enables communication between `/teleop_turtle` and `/turtlesim`, introducing ROS2 topics.
+- **RQT Graph**: Visualizes nodes and topic connections, showing `/teleop_turtle` publishing to `/turtle1/cmd_vel` and `/turtlesim` subscribing, complementing CLI tools.
+- **Node Remapping**: Renaming nodes (e.g., `/teleop_turtle` to `/my_turtle`) using `--ros-args -r __node:=<name>` updates the graph without affecting functionality.
+- **Graphical Nodes**: Unlike prior nodes that only logged to the terminal, `turtlesim_node` demonstrates that nodes can have GUI components.
+
+## Notes
+
+- **Turtlesim Installation**: The transcript notes that `turtlesim` is included in the `ros-jazzy-desktop` install, as confirmed in the [ROS2 Jazzy Installation Guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debians.html). The tutorial provides an installation command for clarity.
+- **Node Names**: The `turtlesim_node` is named `/turtlesim`, and `turtle_teleop_key` is named `/teleop_turtle`, as shown in `rqt_graph` and `ros2 node list`.
+- **Topic Introduction**: The `/turtle1/cmd_vel` topic uses `geometry_msgs/msg/Twist`, carrying linear and angular velocities, as per the [Turtlesim Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Introducing-Turtlesim.html).
+- **RQT Graph**: The transcript’s observation of nodes and the `/turtle1/cmd_vel` topic is accurate, with “Nodes only” and “Nodes/Topics” views supported by `rqt_graph`, as in [4.4](4.4%20-%20Using%20RQT%20and%20RQT%20Graph.md).
+- **Remapping**: The `--ros-args -r __node:=my_turtle` syntax is correct, as shown in [4.2](4.2%20-%20Renaming%20a%20Node%20at%20Runtime.md), and updates the node name in `rqt_graph`.
+- **Sourcing**: The transcript assumes a sourced environment. The tutorial reinforces sourcing `/opt/ros/jazzy/setup.bash` and optionally `~/ros2_ws/install/setup.bash`.
+- **Terminator**: Multiple terminals are practical for running `turtlesim_node`, `turtle_teleop_key`, and `rqt_graph`, consistent with [4.1](4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md).
+- **Future Use**: The transcript’s mention of revisiting `turtlesim` and a final project aligns with its role in ROS2 education, as per the [Turtlesim Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Introducing-Turtlesim.html).
+- **Transcript Clarifications**:
+  - “Ros two” is corrected to `ros2`.
+  - “Total SIM” is clarified as `turtlesim`.
+  - “Turtle Teleop key” is clarified as `turtle_teleop_key`.
+  - “Top total node” is clarified as `/teleop_turtle`.
+  - “Ross args” is corrected to `--ros-args`.
+  - “Cmdvel” is clarified as `/turtle1/cmd_vel`.
+  - The transcript’s note about “different total” is interpreted as a minor GUI variation (e.g., turtle appearance), which doesn’t affect functionality.
+
+## Next Steps
+
+You’ve explored `turtlesim`, controlled a turtle, and visualized node communication with `rqt_graph`. In the next section, you’ll:
+- Learn about **ROS2 topics** in depth, understanding `/turtle1/cmd_vel` and creating publisher/subscriber nodes.
+- Extend `turtlesim` with custom nodes to publish to `/turtle1/cmd_vel` or subscribe to turtle poses.
+- Use other `rqt` plugins (e.g., `rqt_topic`) to inspect topic data.
+- Prepare for a final project involving `turtlesim`, as hinted in the transcript.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or continue with the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.
