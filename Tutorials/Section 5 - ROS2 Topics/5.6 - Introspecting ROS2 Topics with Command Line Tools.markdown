@@ -1,0 +1,378 @@
+# 5.6 - Introspecting ROS2 Topics with Command Line Tools
+
+This tutorial demonstrates how to use ROS2 command line tools to **introspect topics**, focusing on the `ros2 topic` command and related tools like `ros2 interface` and `ros2 node`. You’ll review commands introduced in previous tutorials (`ros2 topic list`, `ros2 topic echo`) and learn new ones (`ros2 topic info`, `ros2 topic hz`, `ros2 topic bw`, `ros2 topic pub`) to inspect the `/robot_news` topic created in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md), [5.3 - Writing a Python Subscriber](Section%205%20-%20ROS2%20Communication/5.3%20-%20Writing%20a%20Python%20Subscriber.md), [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C++%20Publisher.md), and [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C++%20Subscriber.md). Using the `my_py_pkg` and `my_cpp_pkg` packages, you’ll explore topic names, message types, publisher/subscriber counts, publishing frequency, bandwidth, and direct publishing from the terminal, showcasing ROS2’s introspection capabilities. This tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_py_pkg` Python package and `my_cpp_pkg` C++ package, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C++%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Publisher/Subscriber Nodes**: At least one of the following nodes from previous tutorials:
+  - Python publisher (`robot_news_station`) from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md).
+  - Python subscriber (`smartphone`) from [5.3 - Writing a Python Subscriber](Section%205%20-%20ROS2%20Communication/5.3%20-%20Writing%20a%20Python%20Subscriber.md).
+  - C++ publisher (`robot_news_station`) from [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C++%20Publisher.md).
+  - C++ subscriber (`smartphone`) from [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C++%20Subscriber.md).
+- **Topic Concepts**: Understanding of ROS2 topics (publishers, subscribers, message types) from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md).
+- **CLI Tools**: Familiarity with `ros2 node` commands from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+
+## Step-by-Step Instructions
+
+### Step 1: Review `ros2 topic list`
+
+The `ros2 topic list` command displays all active topics in the ROS2 system. A topic is active if at least one publisher or subscriber is connected to it.
+
+1. **Run Without Nodes**:
+   In a terminal (source the environment: `source ~/ros2_ws/install/setup.bash`), list topics:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output** (if no nodes are running):
+   ```
+   /parameter_events
+   /rosout
+   ```
+   - `/parameter_events`: Used for parameter updates, created when nodes with parameters are active or persist from recent node executions.
+   - `/rosout`: Publishes log messages from nodes (e.g., `RCLCPP_INFO` or Python’s `self.get_logger().info`), automatically created when logging occurs.
+
+2. **Run a Publisher Node**:
+   Start the Python publisher from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) in a new terminal:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg robot_news_station
+   ```
+   **Output**:
+   ```
+   [INFO] [robot_news_station]: Robot News Station has been started
+   ```
+
+3. **List Topics Again**:
+   In the first terminal, run:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /parameter_events
+   /robot_news
+   /rosout
+   ```
+   The `/robot_news` topic appears because the publisher is active.
+
+4. **Stop the Publisher**:
+   Stop the publisher with `Ctrl+C` and list topics again:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /parameter_events
+   /rosout
+   ```
+   The `/robot_news` topic disappears, as no publishers or subscribers are active.
+
+**Screenshot**: `ros2 topic list` with `/robot_news` active:
+
+![Topic List](images/topic_list.png "ros2 topic list showing /robot_news")
+
+### Step 2: Inspect Topic Details with `ros2 topic info`
+
+The `ros2 topic info` command provides details about a specific topic, including its message type and the number of publishers and subscribers.
+
+1. **Start the Publisher**:
+   Ensure the Python publisher is running:
+   ```bash
+   ros2 run my_py_pkg robot_news_station
+   ```
+
+2. **Get Topic Info**:
+   Run:
+   ```bash
+   ros2 topic info /robot_news
+   ```
+   **Expected Output**:
+   ```
+   Type: example_interfaces/msg/String
+   Publisher count: 1
+   Subscriber count: 0
+   ```
+   - **Type**: `example_interfaces/msg/String` is the message type, matching the publisher’s code.
+   - **Publisher count**: 1, from the `robot_news_station` node.
+   - **Subscriber count**: 0, as no subscribers are running.
+
+**Screenshot**: `ros2 topic info /robot_news`:
+
+![Topic Info](images/topic_info.png "ros2 topic info for /robot_news")
+
+### Step 3: View Messages with `ros2 topic echo`
+
+The `ros2 topic echo` command subscribes to a topic and prints its messages to the terminal, acting as a temporary subscriber.
+
+1. **Echo the Topic**:
+   With the Python publisher running, run:
+   ```bash
+   ros2 topic echo /robot_news
+   ```
+   **Expected Output**:
+   ```
+   data: Hi, this is C-3PO from the Robot News Station
+   ---
+   data: Hi, this is C-3PO from the Robot News Station
+   ---
+   ```
+   Messages appear every 0.5 seconds (2 Hz), matching the publisher’s rate.
+
+2. **Check Subscriber Count**:
+   In a new terminal, run:
+   ```bash
+   ros2 topic info /robot_news
+   ```
+   **Expected Output**:
+   ```
+   Type: example_interfaces/msg/String
+   Publisher count: 1
+   Subscriber count: 1
+   ```
+   The subscriber count is 1 because `ros2 topic echo` acts as a subscriber.
+
+3. **Stop Echo**:
+   Stop `ros2 topic echo` with `Ctrl+C` and verify:
+   ```bash
+   ros2 topic info /robot_news
+   ```
+   **Expected Output**:
+   ```
+   Type: example_interfaces/msg/String
+   Publisher count: 1
+   Subscriber count: 0
+   ```
+   The subscriber count returns to 0.
+
+**Screenshot**: `ros2 topic echo /robot_news`:
+
+![Topic Echo](images/topic_echo.png "ros2 topic echo showing published messages")
+
+### Step 4: Inspect Message Type with `ros2 interface show`
+
+The `ros2 interface show` command displays the structure of a message type, revealing its fields.
+
+1. **Show Message Type**:
+   Run:
+   ```bash
+   ros2 interface show example_interfaces/msg/String
+   ```
+   **Expected Output**:
+   ```
+   # This is an example message of a string type
+   string data
+   ```
+   - The `String` message has one field: `data` of type `string`.
+   - Comments (e.g., `# This is an example...`) are included in the interface definition.
+
+**Screenshot**: `ros2 interface show example_interfaces/msg/String`:
+
+![Interface Show](images/interface_show.png "ros2 interface show for String message")
+
+### Step 5: Measure Publishing Frequency with `ros2 topic hz`
+
+The `ros2 topic hz` command measures the average publishing frequency (in Hertz) of a topic.
+
+1. **Measure Frequency**:
+   With the Python publisher running, run:
+   ```bash
+   ros2 topic hz /robot_news
+   ```
+   **Expected Output** (after a few seconds):
+   ```
+   average rate: 2.000
+     min: 0.500s max: 0.500s std dev: 0.00000s window: 10
+   ```
+   - **Average rate**: 2 Hz (2 messages per second, or one every 0.5 seconds), matching the publisher’s 500ms timer.
+   - **Min/Max**: 0.5 seconds per message.
+   - **Window**: Number of messages analyzed.
+
+2. **Stop Measurement**:
+   Stop with `Ctrl+C`.
+
+**Screenshot**: `ros2 topic hz /robot_news`:
+
+![Topic Hz](images/topic_hz.png "ros2 topic hz showing 2 Hz")
+
+### Step 6: Measure Bandwidth with `ros2 topic bw`
+
+The `ros2 topic bw` command measures the average bandwidth (bytes per second) consumed by a topic.
+
+1. **Measure Bandwidth**:
+   Run:
+   ```bash
+   ros2 topic bw /robot_news
+   ```
+   **Expected Output** (after a few seconds):
+   ```
+   average: 118.00 bytes/s
+     mean: 59.00 bytes msg size
+     window: 10
+   ```
+   - **Average**: ~118 bytes/s, as the message (“Hi, this is C-3PO from the Robot News Station”) is ~59 bytes, published 2 times per second.
+   - **Mean**: Average message size (~59 bytes).
+   - **Window**: Number of messages analyzed.
+
+2. **Stop Measurement**:
+   Stop with `Ctrl+C`.
+
+**Screenshot**: `ros2 topic bw /robot_news`:
+
+![Topic BW](images/topic_bw.png "ros2 topic bw showing bandwidth")
+
+### Step 7: Publish Messages with `ros2 topic pub`
+
+The `ros2 topic pub` command publishes messages to a topic from the terminal, acting as a temporary publisher. It’s limited to simple message types like `example_interfaces/msg/String`.
+
+1. **Publish a Message**:
+   Run:
+   ```bash
+   ros2 topic pub --rate 5 /robot_news example_interfaces/msg/String "{data: 'Hello from the terminal'}"
+   ```
+   - `--rate 5`: Publishes 5 times per second (5 Hz, every 0.2 seconds).
+   - `/robot_news`: Topic name (leading `/` is optional in the command but shown in outputs).
+   - `example_interfaces/msg/String`: Message type.
+   - `{data: 'Hello from the terminal'}`: Message content, with `data` as the field name and a string value in single quotes (due to double quotes around the JSON-like structure).
+
+   **Output**:
+   ```
+   publisher: beginning loop
+   publishing #1: example_interfaces.msg.String(data='Hello from the terminal')
+   publishing #2: example_interfaces.msg.String(data='Hello from the terminal')
+   ```
+
+2. **Verify with Subscriber**:
+   In a new terminal, run the C++ subscriber from [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C++%20Subscriber.md):
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_cpp_pkg smartphone
+   ```
+   **Output**:
+   ```
+   [INFO] [smartphone]: Smartphone has been started
+   [INFO] [smartphone]: Hello from the terminal
+   [INFO] [smartphone]: Hi, this is C-3PO from the Robot News Station
+   [INFO] [smartphone]: Hello from the terminal
+   ```
+   The subscriber receives messages from both the terminal publisher (`Hello from the terminal`) and the Python publisher (`Hi, this is C-3PO...`), as both publish to `/robot_news`.
+
+3. **Stop Publishers**:
+   Stop `ros2 topic pub` and the Python publisher with `Ctrl+C`.
+
+**Screenshot**: Subscriber receiving messages from `ros2 topic pub` and Python publisher:
+
+![Subscriber Mixed](images/subscriber_mixed.png "C++ subscriber receiving terminal and Python publisher messages")
+
+### Step 8: Cross-Reference with `ros2 node`
+
+Topic information can also be obtained via `ros2 node` commands, complementing `ros2 topic`.
+
+1. **List Nodes**:
+   With the Python publisher running, run:
+   ```bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /robot_news_station
+   ```
+
+2. **Get Node Info**:
+   Run:
+   ```bash
+   ros2 node info /robot_news_station
+   ```
+   **Expected Output (partial)**:
+   ```
+   /robot_news_station
+     Publishers:
+       /robot_news: example_interfaces/msg/String
+   ```
+   This confirms the node publishes to `/robot_news` with `example_interfaces/msg/String`.
+
+**Screenshot**: `ros2 node info /robot_news_station`:
+
+![Node Info](images/node_info.png "ros2 node info showing /robot_news publisher")
+
+## Troubleshooting
+
+- **No Topics Listed**:
+  - Ensure a publisher or subscriber is running (e.g., `ros2 run my_py_pkg robot_news_station`).
+  - Source the workspace: `source ~/ros2_ws/install/setup.bash`.
+- **Topic Not Found**:
+  - Verify the topic name with `ros2 topic list` (case-sensitive, includes leading `/`).
+  - Check that the publisher/subscriber node is active (`ros2 node list`).
+- **Incorrect Message Type**:
+  - Use `ros2 topic info` to confirm the type, then `ros2 interface show` for details.
+- **`ros2 topic pub` Syntax Errors**:
+  - Ensure the message format matches the type (e.g., `{data: 'text'}` for `String`).
+  - Use single quotes for string values inside double-quoted JSON.
+  - Verify the type with `ros2 interface show example_interfaces/msg/String`.
+- **No Output from `hz` or `bw`**:
+  - Wait a few seconds for measurements to stabilize.
+  - Ensure the publisher is active (`ros2 topic echo /robot_news`).
+- **Persistent `/parameter_events` or `/rosout`**:
+  - These topics may persist due to recent node activity or background processes. They are normal unless causing issues.
+
+## Notes
+
+- **Fact-Checking**:
+  - **Topic List**: `ros2 topic list` shows active topics with at least one publisher or subscriber, per [ROS2 CLI: Topics](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **Topic Info**: `ros2 topic info` reports type and counts, verified via [ROS2 CLI: Topic Info](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **Topic Echo**: `ros2 topic echo` acts as a subscriber, increasing the subscriber count, per [ROS2 CLI: Topic Echo](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **Interface Show**: `ros2 interface show` displays message fields (e.g., `string data`), verified with `example_interfaces/msg/String` via [ROS2 Interfaces](https://docs.ros.org/en/jazzy/Concepts/About-Interfaces.html).
+  - **Topic Hz**: `ros2 topic hz` measures frequency (2 Hz for 500ms interval), per [ROS2 CLI: Topic Hz](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **Topic BW**: `ros2 topic bw` measures bandwidth (~118 bytes/s for ~59-byte messages at 2 Hz), per [ROS2 CLI: Topic BW](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **Topic Pub**: `ros2 topic pub` syntax for simple types (e.g., `String`) is correct, per [ROS2 CLI: Topic Pub](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **Node Info**: `ros2 node info` lists topic details, per [ROS2 CLI: Nodes](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Nodes.html).
+  - **Default Topics**: `/parameter_events` and `/rosout` are standard, per [ROS2 Concepts: Topics](https://docs.ros.org/en/jazzy/Concepts/About-Topics.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Ross two” to “ROS2” and “rostopic” to “ros2 topic”.
+  - Clarified `/parameter_events` and `/rosout` appear due to node activity or logging.
+  - Specified leading `/` in topic names is optional in `ros2 topic pub` but shown in outputs.
+  - Noted `ros2 topic pub` is limited to simple types, with JSON-like syntax for `String`.
+  - Confirmed 2 Hz frequency matches 0.5-second interval (500ms timer).
+
+- **Repository Structure**:
+  - Places the tutorial in `Section 5 - ROS2 Communication/`, following [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C++%20Subscriber.md).
+  - Uses `images/` for six screenshots: `topic_list.png`, `topic_info.png`, `topic_echo.png`, `interface_show.png`, `topic_hz.png`, `topic_bw.png`, `subscriber_mixed.png`, `node_info.png`.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `topic_list.png`: `ros2 topic list` with `/robot_news`.
+    - `topic_info.png`: `ros2 topic info /robot_news`.
+    - `topic_echo.png`: `ros2 topic echo /robot_news`.
+    - `interface_show.png`: `ros2 interface show example_interfaces/msg/String`.
+    - `topic_hz.png`: `ros2 topic hz /robot_news`.
+    - `topic_bw.png`: `ros2 topic bw /robot_news`.
+    - `subscriber_mixed.png`: C++ subscriber showing terminal and Python publisher messages.
+    - `node_info.png`: `ros2 node info /robot_news_station`.
+  - Use tools like GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use `ros2 topic echo` for quick debugging of topic data.
+  - Verify topic types with `ros2 topic info` and `ros2 interface show` before publishing.
+  - Use `ros2 topic hz` and `bw` to monitor performance in multi-publisher scenarios.
+  - Include leading `/` in commands for consistency, though optional in some cases.
+
+## Next Steps
+
+You’ve learned to introspect ROS2 topics using command line tools, enabling you to debug and analyze the `/robot_news` topic from tutorials 5.2–5.5. Next, you’ll:
+- Visualize topic connections with `rqt_graph`, building on [4.4 - Using RQT and RQT Graph](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.4%20-%20Using%20RQT%20and%20RQT%20Graph.md).
+- Create custom message types for topics, as hinted in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md).
+- Apply topics to control `turtlesim` (e.g., publishing to `/turtle1/cmd_vel`), per [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Explore other communication mechanisms (e.g., services, actions) for comparison.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

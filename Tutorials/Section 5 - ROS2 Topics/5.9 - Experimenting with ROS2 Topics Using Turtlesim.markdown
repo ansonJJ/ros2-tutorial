@@ -1,0 +1,295 @@
+# 5.9 - Experimenting with ROS2 Topics Using Turtlesim
+
+This tutorial demonstrates how to experiment with ROS2 topics using the `turtlesim` package, focusing on the `/turtle1/cmd_vel` topic to control a 2D robot simulation. Building on [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md) and topic concepts from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.8 - Monitoring ROS2 Topics with RQT Graph](Section%205%20-%20ROS2%20Communication/5.8%20-%20Monitoring%20ROS2%20Topics%20with%20RQT%20Graph.md), you’ll use `rqt_graph` and command-line tools (`ros2 node`, `ros2 topic`, `ros2 interface`) to inspect the communication between the `turtlesim_node` and `turtle_teleop_key` nodes. You’ll then publish to `/turtle1/cmd_vel` using `ros2 topic pub` to move the turtle in a circle, leveraging the `geometry_msgs/msg/Twist` message type. This tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_py_pkg` and `my_cpp_pkg` packages, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C++%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), which includes `turtlesim`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Turtlesim Knowledge**: Familiarity with `turtlesim` and its nodes (`turtlesim_node`, `turtle_teleop_key`) from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- **Topic Concepts**: Understanding of ROS2 topics, publishers, subscribers, and remapping from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.8 - Monitoring ROS2 Topics with RQT Graph](Section%205%20-%20ROS2%20Communication/5.8%20-%20Monitoring%20ROS2%20Topics%20with%20RQT%20Graph.md).
+- **CLI Tools**: Familiarity with `ros2 run`, `ros2 node`, `ros2 topic`, `ros2 interface`, and `rqt_graph` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md), [4.4 - Using RQT and RQT Graph](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.4%20-%20Using%20RQT%20and%20RQT%20Graph.md), and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - `rqt` and `rqt_graph` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rqt ros-jazzy-rqt-graph`).
+  - `turtlesim` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-turtlesim`).
+
+## Step-by-Step Instructions
+
+### Step 1: Launch Turtlesim and Teleop
+
+Start the `turtlesim` simulation and its teleop node to explore the `/turtle1/cmd_vel` topic.
+
+1. **Run Turtlesim Node**:
+   In a terminal, source the environment and start `turtlesim_node`:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run turtlesim turtlesim_node
+   ```
+   A window opens showing a turtle at the center of a blue background. Resize and move the window to one side for visibility.
+
+2. **Run Teleop Node**:
+   In a new terminal, start the `turtle_teleop_key` node:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run turtlesim turtle_teleop_key
+   ```
+   **Output**:
+   ```
+   Reading from keyboard
+   ---------------------------
+   Use arrow keys to move the turtle.
+   ...
+   ```
+   Focus this terminal and use arrow keys (Up, Down, Left, Right) to move the turtle. The turtle moves, indicating that `turtle_teleop_key` publishes commands to `turtlesim_node`.
+
+**Screenshot**: Turtlesim window with turtle:
+
+![Turtlesim Window](images/turtlesim_window.png "Turtlesim window with turtle")
+
+### Step 2: Visualize with RQT Graph
+
+Use `rqt_graph` to visualize the topic communication between `turtlesim_node` and `turtle_teleop_key`.
+
+1. **Launch RQT Graph**:
+   In a new terminal, run:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   rqt_graph
+   ```
+   The `rqt_graph` window opens. Maximize it for clarity.
+
+2. **Inspect the Graph**:
+   Select **Nodes/Topics (all)** from the dropdown and click **Refresh** (circular arrow). You should see:
+   - Nodes: `/turtlesim` and `/teleop_turtle`.
+   - Topic: `/turtle1/cmd_vel`, with an arrow from `/teleop_turtle` (publisher) to `/turtle1/cmd_vel` and from `/turtle1/cmd_vel` to `/turtlesim` (subscriber).
+   Other topics (e.g., `/turtle1/pose`) may appear but are not relevant here.
+
+**Screenshot**: `rqt_graph` showing `/turtle1/cmd_vel`:
+
+![RQT Graph Turtlesim](images/rqt_graph_turtlesim.png "rqt_graph showing /teleop_turtle -> /turtle1/cmd_vel -> /turtlesim")
+
+### Step 3: Inspect Nodes with CLI Tools
+
+Use `ros2 node` and `ros2 topic` commands to gather information about the nodes and the `/turtle1/cmd_vel` topic.
+
+1. **List Nodes**:
+   In a new terminal, run:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /teleop_turtle
+   /turtlesim
+   ```
+
+2. **Inspect Turtlesim Node**:
+   Run:
+   ```bash
+   ros2 node info /turtlesim
+   ```
+   **Expected Output (partial)**:
+   ```
+   /turtlesim
+     Subscribers:
+       /turtle1/cmd_vel: geometry_msgs/msg/Twist
+   ```
+   This confirms `/turtlesim` subscribes to `/turtle1/cmd_vel` with message type `geometry_msgs/msg/Twist`.
+
+3. **Inspect Teleop Node**:
+   Run:
+   ```bash
+   ros2 node info /teleop_turtle
+   ```
+   **Expected Output (partial)**:
+   ```
+   /teleop_turtle
+     Publishers:
+       /turtle1/cmd_vel: geometry_msgs/msg/Twist
+   ```
+   This confirms `/teleop_turtle` publishes to `/turtle1/cmd_vel` with the same message type.
+
+4. **List Topics**:
+   Run:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /parameter_events
+   /rosout
+   /turtle1/cmd_vel
+   /turtle1/color_sensor
+   /turtle1/pose
+   ```
+   The `/turtle1/cmd_vel` topic is relevant; others (e.g., `/turtle1/pose`) are for turtle state and not used here.
+
+5. **Get Topic Info**:
+   Run:
+   ```bash
+   ros2 topic info /turtle1/cmd_vel
+   ```
+   **Expected Output**:
+   ```
+   Type: geometry_msgs/msg/Twist
+   Publisher count: 1
+   Subscriber count: 1
+   ```
+   This confirms one publisher (`/teleop_turtle`) and one subscriber (`/turtlesim`).
+
+**Screenshot**: `ros2 node info /turtlesim`:
+
+![Node Info Turtlesim](images/node_info_turtlesim.png "ros2 node info /turtlesim showing /turtle1/cmd_vel")
+
+### Step 4: Inspect Message Type
+
+Examine the `geometry_msgs/msg/Twist` message type to understand its structure for publishing.
+
+1. **Show Message Type**:
+   Run:
+   ```bash
+   ros2 interface show geometry_msgs/msg/Twist
+   ```
+   **Expected Output**:
+   ```
+   # This expresses velocity in free space broken into its linear and angular parts.
+   Vector3  linear
+   Vector3  angular
+   ```
+   The `Twist` message has two fields:
+   - `linear`: A `Vector3` with `x`, `y`, `z` (float64) for linear velocity.
+   - `angular`: A `Vector3` with `x`, `y`, `z` (float64) for angular velocity.
+   For `turtlesim` (2D), only `linear.x` (forward/backward) and `angular.z` (rotation around Z-axis) are relevant, as Y and Z translations and X/Y rotations are not applicable.
+
+**Screenshot**: `ros2 interface show geometry_msgs/msg/Twist`:
+
+![Interface Show Twist](images/interface_show_twist.png "ros2 interface show geometry_msgs/msg/Twist")
+
+### Step 5: Publish to /turtle1/cmd_vel
+
+Use `ros2 topic pub` to publish a `Twist` message to `/turtle1/cmd_vel`, making the turtle move in a circle by setting `linear.x` and `angular.z`.
+
+1. **Stop Teleop Node**:
+   Stop the `turtle_teleop_key` node with `Ctrl+C` to avoid conflicting commands. Keep `turtlesim_node` running.
+
+2. **Publish Twist Message**:
+   In a new terminal, publish to `/turtle1/cmd_vel` at 2 Hz:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 topic pub --rate 2 /turtle1/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 1.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 1.0}}"
+   ```
+   **Output**:
+   ```
+   publisher: beginning loop
+   publishing #1: geometry_msgs.msg.Twist(linear=geometry_msgs.msg.Vector3(x=1.0, y=0.0, z=0.0), angular=geometry_msgs.msg.Vector3(x=0.0, y=0.0, z=1.0))
+   ```
+   - `--rate 2`: Publishes 2 times per second (2 Hz).
+   - `/turtle1/cmd_vel`: Topic name.
+   - `geometry_msgs/msg/Twist`: Message type.
+   - `{linear: {x: 1.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 1.0}}`: Message content:
+     - `linear.x: 1. include: This is a navigation to the next page link in the footer.0`: Moves forward at 1 unit/second.
+     - `angular.z: 1.0`: Rotates at 1 radian/second.
+     - Other fields (`y`, `z` for linear; `x`, `y` for angular) are set to 0, as they’re irrelevant in 2D.
+
+   The turtle moves in a circle in the `turtlesim` window, as `linear.x` provides forward motion and `angular.z` causes rotation.
+
+3. **Stop Publishing**:
+   Stop with `Ctrl+C`. The turtle stops moving, as no further commands are received.
+
+**Screenshot**: Turtlesim turtle moving in a circle:
+
+![Turtlesim Circle](images/turtlesim_circle.png "Turtlesim turtle moving in a circle")
+
+### Step 6: Understand 2D Motion in Turtlesim
+
+The `Twist` message controls the turtle’s 2D motion:
+- **Linear Velocity**:
+  - `linear.x`: Forward/backward speed (positive = forward, negative = backward).
+  - `linear.y`, `linear.z`: Ignored, as `turtlesim` is 2D (no side-to-side or vertical motion).
+- **Angular Velocity**:
+  - `angular.z`: Rotation around the Z-axis (positive = counterclockwise, negative = clockwise).
+  - `angular.x`, `angular.y`: Ignored, as `turtlesim` only rotates around Z.
+- **Circle Motion**:
+  - Combining `linear.x` (forward speed) and `angular.z` (rotation) produces a circular path.
+  - Radius = `linear.x / angular.z` (e.g., `1.0 / 1.0 = 1.0` unit).
+- **Default Values**: Omitted fields default to 0, so `{linear: {x: 1.0}, angular: {z: 1.0}}` is equivalent to the full message above.
+
+**Note**: The right-hand rule for rotations (mentioned in the transcript) will be covered in a future “final project” tutorial. For now, know that `angular.z > 0` rotates counterclockwise.
+
+## Troubleshooting
+
+- **Turtlesim Window Not Opening**:
+  - Ensure `turtlesim` is installed: `sudo apt install ros-jazzy-turtlesim`.
+  - Source ROS2: `source /opt/ros/jazzy/setup.bash`.
+  - Check for display issues: `echo $DISPLAY` (should be set, e.g., `:0`).
+- **Turtle Not Moving**:
+  - Verify the topic name: `ros2 topic list` (should include `/turtle1/cmd_vel`).
+  - Check publisher/subscriber counts: `ros2 topic info /turtle1/cmd_vel`.
+  - Ensure correct message syntax in `ros2 topic pub` (matching `geometry_msgs/msg/Twist`).
+  - Stop `turtle_teleop_key` to avoid conflicting commands.
+- **RQT Graph Empty**:
+  - Refresh with **Nodes/Topics (all)** selected.
+  - Ensure nodes are running: `ros2 node list`.
+- **Syntax Error in `ros2 topic pub`**:
+  - Match the `Twist` structure: `{linear: {x: float, y: float, z: float}, angular: {x: float, y: float, z: float}}`.
+  - Ensure all curly braces are closed.
+  - Use floats (e.g., `1.0`, not `1`).
+- **Persistent `/parameter_events`, `/rosout`**:
+  - These are standard and safe to ignore unless causing issues.
+
+## Notes
+
+- **Fact-Checking**:
+  - **Turtlesim Nodes**: `turtlesim_node` subscribes to `/turtle1/cmd_vel`, and `turtle_teleop_key` publishes to it, per [ROS2 Turtlesim Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Introducing-Turtlesim.html).
+  - **Topic Info**: `/turtle1/cmd_vel` uses `geometry_msgs/msg/Twist`, with one publisher and one subscriber, per [ROS2 CLI: Topics](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **Twist Message**: `geometry_msgs/msg/Twist` has `linear` and `angular` `Vector3` fields, per [geometry_msgs/Twist](http://docs.ros.org/en/jazzy/api/geometry_msgs/msg/Twist.html).
+  - **2D Motion**: `turtlesim` uses only `linear.x` and `angular.z`, ignoring other fields, per [Turtlesim Documentation](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Introducing-Turtlesim.html).
+  - **Topic Pub**: `ros2 topic pub` syntax for `Twist` is correct, per [ROS2 CLI: Topic Pub](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html#publishing-to-a-topic).
+  - **RQT Graph**: Visualizes `/turtle1/cmd_vel` correctly, per [ROS2 RQT Graph Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Visualizing-ROS2-Data-with-RQT.html).
+  - **CLI Tools**: `ros2 node info`, `ros2 topic list`, `ros2 topic info`, and `ros2 interface show` outputs are consistent with [ROS2 CLI Documentation](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools.html).
+
+- **Transcript Clarifications**:
+  - Corrected “total SIM” to “turtlesim” and “Ross” to “ROS2”.
+  - Clarified `/turtle1/cmd_vel` topic and `geometry_msgs/msg/Twist` type.
+  - Specified that `linear.x` and `angular.z` are sufficient for 2D motion, with other fields defaulting to 0.
+  - Noted that the “right-hand rule” will be covered later, as mentioned.
+  - Corrected “Cmdvel” to `/turtle1/cmd_vel` and standardized topic naming.
+
+- **Repository Structure**:
+  - Places the tutorial in `Section 5 - ROS2 Communication/`, following [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.8 - Monitoring ROS2 Topics with RQT Graph](Section%205%20-%20ROS2%20Communication/5.8%20-%20Monitoring%20ROS2%20Topics%20with%20RQT%20Graph.md).
+  - Uses `images/` for four screenshots: `turtlesim_window.png`, `rqt_graph_turtlesim.png`, `node_info_turtlesim.png`, `interface_show_twist.png`, `turtlesim_circle.png`.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `turtlesim_window.png`: Turtlesim window with turtle.
+    - `rqt_graph_turtlesim.png`: `rqt_graph` showing `/teleop_turtle` to `/turtle1/cmd_vel` to `/turtlesim`.
+    - `node_info_turtlesim.png`: `ros2 node info /turtlesim`.
+    - `interface_show_twist.png`: `ros2 interface show geometry_msgs/msg/Twist`.
+    - `turtlesim_circle.png`: Turtlesim turtle moving in a circle.
+  - Use tools like GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use `rqt_graph` to visualize topic connections before publishing.
+  - Verify message types with `ros2 interface show` for complex messages like `Twist`.
+  - Test `ros2 topic pub` syntax in a separate terminal to avoid errors.
+  - Stop conflicting publishers (e.g., `turtle_teleop_key`) before publishing manually.
+  - Use multiple terminals (e.g., Terminator) for simultaneous node execution.
+
+## Next Steps
+
+You’ve learned to experiment with ROS2 topics using `turtlesim`, controlling the turtle via `/turtle1/cmd_vel` and inspecting communication with `rqt_graph` and CLI tools. Next, you’ll:
+- Create custom message types for topics, as hinted in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md).
+- Write a ROS2 node to programmatically publish to `/turtle1/cmd_vel` (e.g., in Python or C++).
+- Explore services (e.g., `/turtle1/teleport_absolute`) or actions as alternative communication mechanisms, building on [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md).
+- Revisit the “right-hand rule” for rotations in a “final project” tutorial, as mentioned.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

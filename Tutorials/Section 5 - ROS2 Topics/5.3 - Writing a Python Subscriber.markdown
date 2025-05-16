@@ -1,0 +1,327 @@
+# 5.3 - Writing a Python Subscriber
+
+This tutorial demonstrates how to create a **Python subscriber node** in ROS2 that listens to the `/robot_news` topic, receiving string messages published by the `robot_news_station` node from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md). Using the `my_py_pkg` package from [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), you’ll create a node named `smartphone` that acts like a smartphone receiving news updates, logging messages like “Hi, this is C-3PO from the Robot News Station” to the terminal. The subscriber uses the `example_interfaces/msg/String` message type and the `--symlink-install` option from [4.3 - Recap on Colcon and Symlink Install](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.3%20-%20Recap%20on%20Colcon%20and%20Symlink%20Install.md). This tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_py_pkg` Python package, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md) and [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Publisher Node**: The `robot_news_station` node from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md), publishing to `/robot_news` with `example_interfaces/msg/String`.
+- **Node Knowledge**: Familiarity with Python nodes and the node template from [3.5 - Creating a ROS2 Python Node](Section%203%20-%20Your%20First%20ROS2%20Program/3.5%20-%20Creating%20a%20ROS2%20Python%20Node.md) and [3.6 - Creating a ROS2 Python Node with OOP](Section%203%20-%20Your%20First%20ROS2%20Program/3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md).
+- **Topic Concepts**: Understanding of ROS2 topics (publishers, subscribers, message types) from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md).
+- **CLI Tools**: Knowledge of `ros2 node` and `ros2 topic` commands from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md).
+- **Development Tools**:
+  - Visual Studio Code with the ROS extension (`sudo snap install code --classic; code --install-extension ms-vscode.ros`).
+  - `colcon` with `--symlink-install` (`sudo apt install python3-colcon-common-extensions`).
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+
+## Step-by-Step Instructions
+
+### Step 1: Create the Subscriber Node File
+
+1. **Navigate to the Package**:
+   Go to the `my_py_pkg` package in your workspace’s `src/` directory, created in [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md):
+   ```bash
+   cd ~/ros2_ws/src/my_py_pkg/my_py_pkg
+   ```
+
+2. **Create the Node File**:
+   Create a new Python file named `smartphone.py`:
+   ```bash
+   touch smartphone.py
+   ```
+
+3. **Make the File Executable**:
+   Set executable permissions, required for `--symlink-install` (from [4.3 - Recap on Colcon and Symlink Install](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.3%20-%20Recap%20on%20Colcon%20and%20Symlink%20Install.md)):
+   ```bash
+   chmod +x smartphone.py
+   ```
+
+4. **Remove `__pycache__` (if present)**:
+   Delete any `__pycache__` folder in `~/ros2_ws/src/my_py_pkg/my_py_pkg/` to avoid stale compiled files:
+   ```bash
+   rm -rf ~/ros2_ws/src/my_py_pkg/my_py_pkg/__pycache__
+   ```
+
+5. **Open in VSCode**:
+   Launch VSCode from the workspace’s `src/` directory to enable ROS extension features:
+   ```bash
+   cd ~/ros2_ws/src
+   code .
+   ```
+   Open `smartphone.py` in VSCode.
+
+### Step 2: Write the Subscriber Node Code
+
+Use the Python node template from [3.6 - Creating a ROS2 Python Node with OOP](Section%203%20-%20Your%20First%20ROS2%20Program/3.6%20-%20Creating%20a%20ROS2%20Python%20Node%20with%20OOP.md), modifying it to create a subscriber. The node will:
+- Be named `smartphone`.
+- Subscribe to the `/robot_news` topic using `example_interfaces/msg/String`.
+- Log received messages (e.g., “Hi, this is C-3PO from the Robot News Station”) via a callback.
+- Log a startup message.
+
+Copy the following code into `smartphone.py`:
+
+```python
+#!/usr/bin/env python3
+import rclpy
+from rclpy.node import Node
+from example_interfaces.msg import String
+
+class SmartphoneNode(Node):
+    def __init__(self):
+        super().__init__('smartphone')
+        self.subscriber = self.create_subscription(
+            String,
+            'robot_news',
+            self.callback_robot_news,
+            10
+        )
+        self.get_logger().info('Smartphone has been started')
+
+    def callback_robot_news(self, msg: String):
+        self.get_logger().info(msg.data)
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = SmartphoneNode()
+    rclpy.spin(node)
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+**Code Explanation**:
+- **Imports**:
+  - `rclpy`: ROS2 Python client library for node functionality.
+  - `Node`: Base class for creating nodes.
+  - `example_interfaces.msg.String`: Message type for subscribing to strings, with a `data` field (verified via `ros2 interface show example_interfaces/msg/String`).
+- **Class `SmartphoneNode`**:
+  - Inherits from `Node` with name `smartphone`.
+  - `self.subscriber`: Creates a subscription to the `robot_news` topic with `String` messages, a callback (`callback_robot_news`), and a queue size of 10 (buffers up to 10 messages for network stability).
+  - Logs “Smartphone has been started” on startup.
+- **Method `callback_robot_news`**:
+  - Receives a `String` message (`msg`) and logs `msg.data` using the node’s logger.
+  - The callback is triggered whenever a message is received on `/robot_news`.
+- **Main Function**:
+  - Initializes ROS2, creates the node, spins to keep it alive (processing callbacks), and shuts down cleanly.
+
+**Best Practice**:
+- The node name is `smartphone`, not `smartphone_node`, to avoid redundancy (it’s already a node), as advised in the transcript.
+
+**Screenshot**: The VSCode editor showing `smartphone.py`:
+
+![Subscriber Code](images/subscriber_code.png "VSCode showing smartphone.py")
+
+### Step 3: Verify Package Dependencies
+
+The code uses `example_interfaces.msg.String`, which was added to `my_py_pkg`’s `package.xml` in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md).
+
+1. **Check `package.xml`**:
+   Open `~/ros2_ws/src/my_py_pkg/package.xml` in VSCode and confirm:
+   ```xml
+   <depend>example_interfaces</depend>
+   ```
+   If missing, add it below `<depend>rclpy</depend>` and save.
+
+**Screenshot**: `package.xml` with `example_interfaces`:
+
+![Package XML](images/package_xml.png "package.xml with example_interfaces dependency")
+
+### Step 4: Update `setup.py` for the Executable
+
+Add the `smartphone.py` script as an executable in `my_py_pkg`’s `setup.py`.
+
+1. **Edit `setup.py`**:
+   Open `~/ros2_ws/src/my_py_pkg/setup.py` in VSCode.
+   In the `console_scripts` section of `entry_points`, add a new entry for `smartphone`. Ensure a comma separates entries:
+   ```python
+   entry_points={
+       'console_scripts': [
+           'my_first_node = my_py_pkg.my_first_node:main',
+           'robot_news_station = my_py_pkg.robot_news_station:main',
+           'smartphone = my_py_pkg.smartphone:main',
+       ],
+   },
+   ```
+
+**Screenshot**: Updated `setup.py` with `smartphone`:
+
+![Setup PY](images/setup_py_subscriber.png "setup.py with smartphone executable")
+
+2. **Save the File**:
+   Ensure `setup.py` is saved.
+
+### Step 5: Build and Test the Subscriber
+
+1. **Build the Workspace**:
+   Navigate to the workspace root and build `my_py_pkg` with `--symlink-install`:
+   ```bash
+   cd ~/ros2_ws
+   colcon build --packages-select my_py_pkg --symlink-install
+   ```
+   **Note**: `--symlink-install` links Python scripts, allowing changes to `smartphone.py` without rebuilding, as explained in [4.3 - Recap on Colcon and Symlink Install](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.3%20-%20Recap%20on%20Colcon%20and%20Symlink%20Install.md).
+
+2. **Source the Workspace**:
+   Source the updated workspace to access the new executable:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ```
+
+3. **Run the Subscriber**:
+   Start the `smartphone` node in a terminal:
+   ```bash
+   ros2 run my_py_pkg smartphone
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [smartphone]: Smartphone has been started
+   ```
+   The node runs but logs nothing further, as no messages are published yet.
+
+**Screenshot**: Terminal output of `ros2 run my_py_pkg smartphone`:
+
+![Node Output](images/subscriber_node_output.png "Terminal showing subscriber node startup")
+
+4. **Run the Publisher**:
+   In a new terminal (source the environment: `source ~/ros2_ws/install/setup.bash`), start the `robot_news_station` node from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md):
+   ```bash
+   ros2 run my_py_pkg robot_news_station
+   ```
+   **Publisher Output**:
+   ```
+   [INFO] [robot_news_station]: Robot News Station has been started
+   ```
+
+5. **Verify Subscriber Output**:
+   In the `smartphone` terminal, you should see messages logged every 0.5 seconds:
+   ```
+   [INFO] [smartphone]: Hi, this is C-3PO from the Robot News Station
+   [INFO] [smartphone]: Hi, this is C-3PO from the Robot News Station
+   ```
+   **Test Interruption**:
+   - Stop the publisher with `Ctrl+C`. The subscriber continues running but logs no messages.
+   - Restart the publisher (`ros2 run my_py_pkg robot_news_station`). The subscriber resumes logging messages.
+
+**Screenshot**: Subscriber logging messages from the publisher:
+
+![Subscriber Messages](images/subscriber_messages.png "Terminal showing subscriber receiving messages")
+
+6. **Verify the Node**:
+   In a new terminal (source the environment), check nodes:
+   ```bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /robot_news_station
+   /smartphone
+   ```
+
+7. **Inspect Node Info**:
+   Verify the subscriber:
+   ```bash
+   ros2 node info /smartphone
+   ```
+   **Expected Output (partial)**:
+   ```
+   /smartphone
+     Subscribers:
+       /robot_news: example_interfaces/msg/String
+   ```
+
+**Screenshot**: `ros2 node info` output:
+
+![Node Info](images/subscriber_node_info.png "ros2 node info showing /robot_news subscriber")
+
+8. **List Topics**:
+   Check available topics:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /parameter_events
+   /robot_news
+   /rosout
+   ```
+
+## Troubleshooting
+
+- **Node Not Found**:
+  - Ensure the workspace is sourced: `source ~/ros2_ws/install/setup.bash`.
+  - Verify `my_py_pkg` built correctly: `colcon build --packages-select my_py_pkg --symlink-install`.
+- **No Messages Received**:
+  - Confirm the publisher is running (`ros2 run my_py_pkg robot_news_station`).
+  - Verify the topic name: `/robot_news` (case-sensitive, ROS2 adds a leading `/`).
+  - Check `ros2 topic list` and `ros2 topic echo /robot_news` to ensure the publisher is active.
+- **Import Error for `example_interfaces`**:
+  - Verify `<depend>example_interfaces</depend>` in `package.xml`.
+  - Rebuild the workspace.
+- **Executable Not Found**:
+  - Check `setup.py` for the `smartphone` entry in `console_scripts`.
+  - Ensure a comma separates entries and rebuild.
+- **Build Errors**:
+  - Remove build artifacts and rebuild:
+    ```bash
+    cd ~/ros2_ws
+    rm -rf build install log
+    colcon build --packages-select my_py_pkg --symlink-install
+    ```
+
+## Notes
+
+- **Fact-Checking**:
+  - **Subscriber Creation**: Verified `create_subscription(msg_type, topic, callback, qos)` syntax and queue size (10) per [ROS2 Tutorials: Subscriber](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Publisher-and-Subscriber-Python.html).
+  - **Message Type**: Confirmed `example_interfaces/msg/String` has a `data` field via `ros2 interface show example_interfaces/msg/String`, per [ROS2 Interfaces](https://docs.ros.org/en/jazzy/Concepts/About-Interfaces.html).
+  - **Callback**: The callback receiving a `String` message and accessing `msg.data` aligns with [ROS2 rclpy Subscriber](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Publisher-and-Subscriber-Python.html).
+  - **Topic Name**: `robot_news` matches the publisher’s topic, and ROS2 adds a leading `/`, per [ROS2 Naming](https://design.ros2.org/articles/topic_and_service_names.html).
+  - **Symlink Install**: Requires `chmod +x`, matching [ROS2 Colcon Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html).
+  - **CLI Tools**: `ros2 node list`, `ros2 node info`, and `ros2 topic list` outputs match [ROS2 CLI Tools](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Nodes.html).
+  - **Dependencies**: `example_interfaces` is included in `ros-jazzy-desktop`, per [ROS2 Packages](https://docs.ros.org/en/jazzy/Installation.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Ross two” to “ROS2”.
+  - Clarified `chmod +x` is mandatory for `--symlink-install`.
+  - Used `create_subscription` (correct term) instead of “create subscriber”.
+  - Specified `example_interfaces.msg.String` as the message type.
+  - Emphasized matching topic name (`robot_news`) and message type between publisher and subscriber.
+  - Added type hint (`msg: String`) as optional but recommended, per transcript.
+  - Named callback `callback_robot_news` to follow the transcript’s convention (prefix `callback_`, topic name).
+
+- **Repository Structure**:
+  - Places the tutorial in `Section 5 - ROS2 Communication/`, following [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) and [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md).
+  - Uses `images/` for five screenshots: `subscriber_code.png`, `package_xml.png`, `setup_py_subscriber.png`, `subscriber_node_output.png`, `subscriber_messages.png`, `subscriber_node_info.png`. Reuses `package_xml.png` from 5.2.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `subscriber_code.png`: VSCode showing `smartphone.py`.
+    - `setup_py_subscriber.png`: `setup.py` with `smartphone`.
+    - `subscriber_node_output.png`: `ros2 run` output for `smartphone`.
+    - `subscriber_messages.png`: Subscriber logging messages from the publisher.
+    - `subscriber_node_info.png`: `ros2 node info` output.
+  - Use tools like GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Node name `smartphone` avoids redundancy (e.g., not `smartphone_node`), as advised.
+  - Callback naming (`callback_robot_news`) clarifies its purpose and topic.
+  - Logging node startup improves user feedback.
+  - Type hint (`msg: String`) enhances code clarity, though optional.
+  - `--symlink-install` simplifies development for Python scripts.
+
+## Next Steps
+
+You’ve created a Python subscriber node that receives messages from `/robot_news`, completing a publisher-subscriber communication pair with [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md). Next, you’ll:
+- Use `rqt_topic` to inspect topic data, building on [4.4 - Using RQT and RQT Graph](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.4%20-%20Using%20RQT%20and%20RQT%20Graph.md).
+- Explore custom message types for topics, as hinted in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md).
+- Apply topics to control `turtlesim` (e.g., publishing to `/turtle1/cmd_vel`), per [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Learn other communication mechanisms (e.g., services, actions) for comparison.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

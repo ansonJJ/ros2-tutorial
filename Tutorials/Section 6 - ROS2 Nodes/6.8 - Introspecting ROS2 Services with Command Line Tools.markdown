@@ -1,0 +1,392 @@
+# 6.8 - Introspecting ROS2 Services with Command Line Tools
+
+This tutorial demonstrates how to **introspect ROS2 services** using command-line tools (`ros2 service`, `ros2 node`, `ros2 interface`) and the graphical tool **RQT**. It builds on the service server and client implementations from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md), [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md), [6.3 - Writing a Python Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.3%20-%20Writing%20a%20Python%20Service%20Client%20(Non-OOP).md), [6.4 - Writing a Python Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.4%20-%20Writing%20a%20Python%20Service%20Client%20(OOP).md), [6.5 - Writing a C++ Service Server](Section%206%20-%20ROS2%20Services/6.5%20-%20Writing%20a%20C%2B%2B%20Service%20Server.md), [6.6 - Writing a C++ Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.6%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(Non-OOP).md), and [6.7 - Writing a C++ Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.7%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(OOP).md), using the `example_interfaces/srv/AddTwoInts` service. You’ll learn to list services, inspect node information, check service types, view interface details, call services from the terminal, and use RQT’s Service Caller plugin. This tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `example_interfaces` and `rqt`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_cpp_pkg` C++ package and `my_py_pkg` Python package, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Service Server**: The `add_two_ints_server` node from [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md) or [6.5 - Writing a C++ Service Server](Section%206%20-%20ROS2%20Services/6.5%20-%20Writing%20a%20C%2B%2B%20Service%20Server.md), providing the `/add_two_ints` service.
+- **Service Knowledge**: Understanding of ROS2 services, servers, and clients from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) through [6.7 - Writing a C++ Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.7%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(OOP).md).
+- **Topic Knowledge**: Familiarity with ROS2 nodes and topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md).
+- **CLI Tools**: Familiarity with `ros2 node` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and topic introspection from [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - RQT installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rqt ros-jazzy-rqt-common-plugins`).
+  - `example_interfaces` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-example-interfaces`).
+
+## Step-by-Step Instructions
+
+### Step 1: Start the Service Server
+
+Run a service server to provide the `/add_two_ints` service for introspection.
+
+1. **Run the Server**:
+   Start the C++ server from [6.5 - Writing a C++ Service Server](Section%206%20-%20ROS2%20Services/6.5%20-%20Writing%20a%20C%2B%2B%20Service%20Server.md):
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_cpp_pkg add_two_ints_server
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_server]: Add Two Ints Server has been started
+   ```
+   Alternatively, use the Python server from [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md):
+   ```bash
+   ros2 run my_py_pkg add_two_ints_server
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_server]: Add Two Ints Server has been started
+   ```
+
+**Screenshot**: C++ server running:
+
+![AddTwoIntsServer Running](images/add_two_ints_server_running.png "C++ add_two_ints_server running")
+
+### Step 2: Explore `ros2 service` Commands
+
+Use `ros2 service` to list available subcommands and get help.
+
+1. **List Subcommands**:
+   Run:
+   ```bash
+   ros2 service --help
+   ```
+   **Expected Output (partial)**:
+   ```
+   usage: ros2 service [-h] COMMAND ...
+
+   Call and manage services in ROS 2.
+
+   positional arguments:
+     COMMAND
+       call      Call a service
+       find      Find services by type
+       list      Output a list of available services
+       type      Output a service's type
+   ```
+   Alternatively, press `Tab` twice after `ros2 service` to autocomplete subcommands:
+   ```
+   call  find  list  type
+   ```
+
+2. **Get Detailed Help**:
+   Run:
+   ```bash
+   ros2 service list --help
+   ```
+   **Expected Output (partial)**:
+   ```
+   usage: ros2 service list [-h] [-c] [-a] [-s]
+
+   Output a list of available services
+
+   options:
+     -h, --help            show this help message and exit
+     -c, --count-services  Only display the number of services discovered
+     -a, --show-all        Show all available services, including those not reachable
+     -s, --show-types      Additionally show the service types
+   ```
+
+**Screenshot**: `ros2 service --help`:
+
+![Ros2 Service Help](images/ros2_service_help.png "ros2 service --help output")
+
+### Step 3: List Services with `ros2 service list`
+
+List all available services to find `/add_two_ints`.
+
+1. **Run the Command**:
+   Run:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 service list
+   ```
+   **Expected Output**:
+   ```
+   /add_two_ints
+   /add_two_ints_server/describe_parameters
+   /add_two_ints_server/get_parameter_types
+   /add_two_ints_server/get_parameters
+   /add_two_ints_server/list_parameters
+   /add_two_ints_server/set_parameters
+   /add_two_ints_server/set_parameters_atomically
+   /get_type_description
+   ```
+
+   **Explanation**:
+   - `/add_two_ints`: The user-defined service from the `add_two_ints_server` node.
+   - Parameter-related services (e.g., `/add_two_ints_server/describe_parameters`): Automatically created for each node to manage parameters, as introduced in [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md). These will be covered in a future section on parameters.
+   - `/get_type_description`: A standard service for introspection, providing type details.
+
+2. **List with Types**:
+   Include service types:
+   ```bash
+   ros2 service list -s
+   ```
+   **Expected Output (partial)**:
+   ```
+   /add_two_ints [example_interfaces/srv/AddTwoInts]
+   /add_two_ints_server/describe_parameters [rcl_interfaces/srv/DescribeParameters]
+   ...
+   ```
+
+**Screenshot**: `ros2 service list`:
+
+![Ros2 Service List](images/ros2_service_list.png "ros2 service list output")
+
+### Step 4: Inspect Node Information with `ros2 node`
+
+Use `ros2 node` to find services associated with a node.
+
+1. **List Nodes**:
+   Run:
+   ```bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /add_two_ints_server
+   ```
+
+2. **Get Node Info**:
+   Run:
+   ```bash
+   ros2 node info /add_two_ints_server
+   ```
+   **Expected Output (partial)**:
+   ```
+   /add_two_ints_server
+     Service Servers:
+       /add_two_ints: example_interfaces/srv/AddTwoInts
+     Service Clients:
+     Publishers:
+     Subscribers:
+     ...
+   ```
+
+   **Explanation**:
+   - Confirms `/add_two_ints` is a service server with type `example_interfaces/srv/AddTwoInts`.
+   - Lists other services (e.g., parameter-related) under `Service Servers`.
+
+**Screenshot**: `ros2 node info /add_two_ints_server`:
+
+![Ros2 Node Info](images/ros2_node_info_add_two_ints_server.png "ros2 node info /add_two_ints_server output")
+
+### Step 5: Check Service Type with `ros2 service type`
+
+Retrieve the type of a specific service.
+
+1. **Run the Command**:
+   Run:
+   ```bash
+   ros2 service type /add_two_ints
+   ```
+   **Expected Output**:
+   ```
+   example_interfaces/srv/AddTwoInts
+   ```
+
+   **Note**: Unlike topics (`ros2 topic info`), services use `ros2 service type`, not `ros2 service info`.
+
+**Screenshot**: `ros2 service type /add_two_ints`:
+
+![Ros2 Service Type](images/ros2_service_type.png "ros2 service type /add_two_ints output")
+
+### Step 6: Inspect Interface with `ros2 interface show`
+
+View the structure of the `AddTwoInts` interface.
+
+1. **Run the Command**:
+   Run:
+   ```bash
+   ros2 interface show example_interfaces/srv/AddTwoInts
+   ```
+   **Expected Output**:
+   ```
+   int64 a
+   int64 b
+   ---
+   int64 sum
+   ```
+
+   **Explanation**:
+   - **Request**: `a` (int64), `b` (int64).
+   - **Response**: `sum` (int64).
+   - **Separator**: `---` splits request and response.
+
+**Screenshot**: `ros2 interface show example_interfaces/srv/AddTwoInts`:
+
+![Interface Show AddTwoInts](images/interface_show_add_two_ints.png "ros2 interface show example_interfaces/srv/AddTwoInts")
+
+### Step 7: Call the Service with `ros2 service call`
+
+Test the `/add_two_ints` service by sending a request from the terminal.
+
+1. **Call with Full Request**:
+   Run:
+   ```bash
+   ros2 service call /add_two_ints example_interfaces/srv/AddTwoInts "{a: 3, b: 7}"
+   ```
+   **Expected Output**:
+   ```
+   requester: making request: example_interfaces.srv.AddTwoInts_Request(a=3, b=7)
+   response:
+   example_interfaces.srv.AddTwoInts_Response(sum=10)
+   ```
+   **Server Output**:
+   ```
+   [INFO] [add_two_ints_server]: 3 + 7 = 10
+   ```
+
+2. **Call with Partial Request**:
+   Run:
+   ```bash
+   ros2 service call /add_two_ints example_interfaces/srv/AddTwoInts "{a: 5}"
+   ```
+   **Expected Output**:
+   ```
+   requester: making request: example_interfaces.srv.AddTwoInts_Request(a=5, b=0)
+   response:
+   example_interfaces.srv.AddTwoInts_Response(sum=5)
+   ```
+   **Server Output**:
+   ```
+   [INFO] [add_two_ints_server]: 5 + 0 = 5
+   ```
+
+   **Explanation**:
+   - Use autocompletion for the service name and interface (e.g., `exa` + `Tab` for `example_interfaces`).
+   - Request format: `"{a: <value>, b: <value>}"` with spaces after colons and commas.
+   - Missing fields (e.g., `b`) default to `0` for integers or empty strings for strings.
+   - Errors occur without spaces (e.g., `{a:5,b:7}` fails).
+
+**Screenshot**: `ros2 service call /add_two_ints`:
+
+![Ros2 Service Call](images/ros2_service_call_add_two_ints.png "ros2 service call /add_two_ints output")
+
+### Step 8: Use RQT Service Caller
+
+Use RQT’s Service Caller plugin to call the service graphically.
+
+1. **Start RQT**:
+   Run:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   rqt
+   ```
+
+2. **Open Service Caller**:
+   - Go to **Plugins** > **Services** > **Service Caller**.
+   - Select `/add_two_ints` from the service dropdown.
+   - Set `a` (e.g., `3`) and `b` (e.g., `4`) in the request fields.
+   - Click **Call**.
+
+3. **Observe Output**:
+   - **RQT Output**: Response shows `sum: 7`.
+   - **Server Output**:
+     ```
+     [INFO] [add_two_ints_server]: 3 + 4 = 7
+     ```
+
+**Screenshot**: RQT Service Caller for `/add_two_ints`:
+
+![RQT Service Caller](images/rqt_service_caller_add_two_ints.png "RQT Service Caller for /add_two_ints")
+
+### Step 9: Understand the Workflow
+
+- **Listing Services**:
+  - `ros2 service list` shows all services, including user-defined (`/add_two_ints`) and node-generated (e.g., parameter services).
+  - Use `-s` to include types.
+- **Node Inspection**:
+  - `ros2 node info` lists services under `Service Servers` or `Service Clients`.
+- **Service Type**:
+  - `ros2 service type` retrieves the interface type (e.g., `example_interfaces/srv/AddTwoInts`).
+- **Interface Details**:
+  - `ros2 interface show` displays request and response fields.
+- **Service Calls**:
+  - `ros2 service call` sends requests with a JSON-like syntax, supporting partial requests.
+  - RQT’s Service Caller provides a GUI for simple requests, avoiding command-line syntax.
+- **Testing Options**:
+  - Terminal (`ros2 service call`): Best for quick tests with simple interfaces.
+  - RQT: User-friendly for graphical interaction.
+  - Scripts (Python/C++ from 6.3, 6.4, 6.6, 6.7): Ideal for complex or repeated tests, modifiable without rebuilding (Python with `--symlink-install`).
+
+### Troubleshooting
+
+- **No Services Listed**:
+  - Ensure the server is running: `ros2 run my_cpp_pkg add_two_ints_server` or `ros2 run my_py_pkg add_two_ints_server`.
+  - Source the workspace: `source ~/ros2_ws/install/setup.bash`.
+  - Check `ros2 node list` for the server node.
+- **Service Call Fails**:
+  - Verify service name with `ros2 service list`.
+  - Use autocompletion for interface (e.g., `exa` + `Tab`).
+  - Ensure correct syntax: `"{a: <value>, b: <value>}"` with spaces.
+  - Check server logs for errors.
+- **RQT Issues**:
+  - Install RQT: `sudo apt install ros-jazzy-rqt ros-jazzy-rqt-common-plugins`.
+  - Ensure `/add_two_ints` appears in the dropdown; if not, restart the server.
+- **Unknown Interface**:
+  - Verify `example_interfaces` is installed: `sudo apt install ros-jazzy-example-interfaces`.
+  - Use `ros2 interface list | grep AddTwoInts` to confirm availability.
+- **Parameter Services**:
+  - Ignore node-generated services (e.g., `/add_two_ints_server/describe_parameters`) for now; they relate to parameters, covered later.
+
+### Notes
+
+- **Fact-Checking**:
+  - **ros2 service Commands**: `list`, `type`, `call`, `find`, per [ROS2 CLI Services](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/CLI-Tools/Understanding-ROS2-Services.html).
+  - **AddTwoInts Interface**: `a`, `b` (int64) in request, `sum` (int64) in response, per [example_interfaces/AddTwoInts](http://docs.ros.org/en/jazzy/api/example_interfaces/srv/AddTwoInts.html).
+  - **Node Services**: Parameter services (e.g., `/describe_parameters`) are auto-generated per node, per [ROS2 Parameters](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-CPP.html).
+  - **Service Call Syntax**: JSON-like `{a: <value>, b: <value>}` with spaces, defaults for missing fields (0 for int64, empty for strings), per [ROS2 Service Call](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/CLI-Tools/Understanding-ROS2-Services.html#calling-a-service).
+  - **RQT Service Caller**: GUI for service calls, per [ROS2 RQT User Guide](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/RQt/User-Guide.html).
+  - **Language Agnostic**: CLI and RQT work with any server (Python/C++), per [ROS2 Concepts: Client Libraries](https://docs.ros.org/en/jazzy/Concepts/About-Client-Libraries.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2”.
+  - Specified `ros2 service type` (not `info`, unlike `ros2 topic info`).
+  - Clarified parameter services are node-generated, to be covered in a future parameters section.
+  - Emphasized autocompletion for `ros2 service call` to avoid typos.
+  - Noted RQT’s Service Caller as a GUI alternative, with plugin path `Plugins > Services > Service Caller`.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 6 - ROS2 Services/`, following 6.1–6.7.
+  - Uses `images/` for six screenshots: `add_two_ints_server_running.png`, `ros2_service_help.png`, `ros2_service_list.png`, `ros2_node_info_add_two_ints_server.png`, `ros2_service_type.png`, `interface_show_add_two_ints.png`, `ros2_service_call_add_two_ints.png`, `rqt_service_caller_add_two_ints.png`.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `add_two_ints_server_running.png`: `ros2 run my_cpp_pkg add_two_ints_server` output.
+    - `ros2_service_help.png`: `ros2 service --help` output.
+    - `ros2_service_list.png`: `ros2 service list` output.
+    - `ros2_node_info_add_two_ints_server.png`: `ros2 node info /add_two_ints_server` output.
+    - `ros2_service_type.png`: `ros2 service type /add_two_ints` output.
+    - `interface_show_add_two_ints.png`: Reuse from 6.2–6.7 if unchanged.
+    - `ros2_service_call_add_two_ints.png`: `ros2 service call /add_two_ints` output.
+    - `rqt_service_caller_add_two_ints.png`: RQT Service Caller with `/add_two_ints`.
+  - Use GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use autocompletion for service names and interfaces to avoid errors.
+  - Include spaces in `ros2 service call` JSON syntax (e.g., `{a: 3, b: 7}`).
+  - Use `ros2 service list -s` to confirm types.
+  - Prefer RQT for simple interfaces to avoid command-line syntax errors.
+  - Use Python non-OOP client (6.3) with `--symlink-install` for rapid script-based testing.
+
+## Next Steps
+
+You’ve learned to introspect ROS2 services using command-line tools and RQT, enabling you to inspect and test services like `/add_two_ints` without code access. Next, you’ll:
+- Create custom service interfaces for complex data types (e.g., `6.9 - Creating Custom ROS2 Services`).
+- Apply services to `turtlesim` (e.g., `/turtle1/teleport_absolute`) from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Combine services with topics in a node (e.g., trigger service calls from topic callbacks).
+- Explore ROS2 parameters, as hinted in the transcript, to understand parameter-related services.
+- Use `ros2 doctor` to diagnose service-related issues.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

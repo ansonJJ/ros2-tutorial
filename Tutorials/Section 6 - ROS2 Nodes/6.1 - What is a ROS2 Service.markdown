@@ -1,0 +1,143 @@
+# 6.1 - What is a ROS2 Service
+
+This tutorial introduces **ROS2 services**, a client-server communication mechanism in ROS2, using real-life analogies to make the concept accessible. Building on topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md), you’ll learn how services differ from topics, their synchronous and asynchronous modes, and their use in robotics applications. Two analogies—an online weather service and an LED panel control system—illustrate the client-server model. This tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_py_pkg` and `my_cpp_pkg` packages, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C++%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Topic Knowledge**: Understanding of ROS2 topics, publishers, and subscribers from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md).
+- **CLI Tools**: Familiarity with `ros2 node` and `ros2 topic` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+
+## What is a ROS2 Service?
+
+A **ROS2 service** is a synchronous or asynchronous client-server communication mechanism in ROS2, where a client sends a request to a server, and the server processes it and returns a response. Unlike topics, which stream data unidirectionally (e.g., [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md)), services are bidirectional and designed for one-time, request-response interactions, such as triggering actions or querying data.
+
+### Key Characteristics
+- **Client-Server Model**: One node hosts a service server, and one or more nodes host service clients. Clients send requests, and the server responds.
+- **Service Name**: A unique identifier (e.g., `/set_led`), analogous to a topic name, used to access the service.
+- **Request and Response Messages**: Each service is defined by a pair of messages (request and response) with specific data structures.
+- **Single Server**: Only one server per service name can exist, but multiple clients can call it.
+- **Synchronous vs. Asynchronous**:
+  - **Synchronous**: The client blocks until the server responds.
+  - **Asynchronous**: The client sends a request, registers a callback, and continues execution; the callback handles the response.
+- **Implementation**: Services are created in nodes using libraries like `rclpy` (Python) or `rclcpp` (C++).
+
+### When to Use Services
+- Use services for discrete, bidirectional interactions, such as:
+  - Triggering an action (e.g., turning on an LED).
+  - Requesting specific data (e.g., current battery level).
+- Use topics for continuous data streams (e.g., sensor data, velocity commands).
+
+## Analogy 1: Online Weather Service
+
+Imagine an online weather service where you (the client) request the local weather by sending your location to a server, which responds with the weather data.
+
+- **Components**:
+  - **Client**: Your computer, sending a location (e.g., “New York”).
+  - **Server**: The weather service, processing the location and returning weather data (e.g., “Sunny, 25°C”).
+  - **Service Name**: The HTTP URL (e.g., `http://weather-service.com/get_weather`), analogous to a ROS2 service name.
+- **Process**:
+  1. The client sends a request with a location.
+  2. The server processes the request and sends a response with weather data.
+  3. The client receives and processes the response.
+- **ROS2 Mapping**:
+  - **Nodes**: Computer nodes (clients) and a weather service node (server).
+  - **Service Clients**: In computer nodes, calling the `/get_weather` service with a location request.
+  - **Service Server**: In the weather service node, processing requests and responding with weather data.
+  - **Service Name**: `/get_weather`.
+- **Multiple Clients**: Multiple computers can send requests to the same server via the same service name.
+- **Single Server**: Only one weather service server exists for `/get_weather`.
+
+**Diagram**: Weather service analogy:
+
+![Weather Service Diagram](images/weather_service_diagram.png "ROS2 service analogy with online weather service")
+
+## Analogy 2: LED Panel Control in Robotics
+
+Consider a robotics application with an LED panel node controlling hardware LEDs and a battery node monitoring battery levels, using a service to turn LEDs on or off.
+
+- **Components**:
+  - **LED Panel Node**: Manages an LED panel, hosting a service server for `/set_led`.
+  - **Battery Node**: Monitors battery levels, hosting a service client for `/set_led`.
+  - **Service Name**: `/set_led`.
+- **Process**:
+  1. The battery node detects a low battery and sends a request to `/set_led` with `led_number: 3, state: true`.
+  2. The LED panel node’s server receives the request, powers on LED 3, and responds with `success: true`.
+  3. The battery node receives the response (synchronously or via a callback) and confirms the action.
+  4. Later, when the battery is full, the battery node sends a new request (`led_number: 3, state: false`).
+  5. The server powers off LED 3 and responds with `success: true`.
+- **ROS2 Mapping**:
+  - **Service Client**: In the battery node, sending requests to `/set_led`.
+  - **Service Server**: In the LED panel node, processing requests and sending responses.
+  - **Request Message**: Contains `led_number` (e.g., int32) and `state` (e.g., bool).
+  - **Response Message**: Contains `success` (e.g., bool).
+- **Asynchronous Example**: The battery node sends a request and continues monitoring; a callback handles the `success` response.
+
+**Diagram**: LED panel service:
+
+![LED Panel Diagram](images/led_panel_diagram.png "ROS2 service for LED panel control")
+
+## Services vs. Topics
+
+| Feature                | ROS2 Service                              | ROS2 Topic                              |
+|------------------------|-------------------------------------------|-----------------------------------------|
+| **Communication Type** | Bidirectional (request-response)          | Unidirectional (publish-subscribe)      |
+| **Participants**       | One server, multiple clients              | Multiple publishers, multiple subscribers |
+| **Use Case**           | Discrete actions or queries (e.g., set LED)| Continuous data streams (e.g., sensor data) |
+| **Message Structure**  | Request and response messages             | Single message type                     |
+| **Execution**          | Synchronous or asynchronous               | Asynchronous                            |
+| **Example**            | `/set_led` (LED on/off)                   | `/turtle1/cmd_vel` (turtle velocity)    |
+
+## Notes
+
+- **Fact-Checking**:
+  - **Service Definition**: Services are client-server, with one server and multiple clients, per [ROS2 Concepts: Services](https://docs.ros.org/en/jazzy/Concepts/About-Services.html).
+  - **Request-Response**: Services use paired request and response messages, per [ROS2 Services Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Service-And-Client-Python.html).
+  - **Synchronous/Asynchronous**: Synchronous blocks the client; asynchronous uses callbacks, per [ROS2 rclpy Services](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Service-And-Client-Python.html#call-the-service-asynchronously).
+  - **Single Server**: Only one server per service name, per [ROS2 Design: Services](https://design.ros2.org/articles/services.html).
+  - **Implementation**: Services are implemented with `rclpy` or `rclcpp`, per [ROS2 Client Libraries](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries.html).
+  - **Contrast with Topics**: Topics are for streaming, services for request-response, per [ROS2 Concepts: Topics vs Services](https://docs.ros.org/en/jazzy/Concepts/About-Topics.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2” and “Ros to” to “ROS2”.
+  - Clarified HTTP URL analogy as a service name, not a direct technical mapping.
+  - Specified asynchronous callbacks as the preferred method (as noted for later tutorials).
+  - Emphasized single server per service name and multiple clients.
+  - Simplified LED example to focus on `led_number` and `state` request, `success` response.
+
+- **Repository Structure**:
+  - Creates a new `Section 6 - ROS2 Services/` directory, as this is the first service tutorial.
+  - Places the tutorial in `Section 6 - ROS2 Services/6.1 - What is a ROS2 Service.md`.
+  - Uses `images/` for two diagrams: `weather_service_diagram.png`, `led_panel_diagram.png`.
+
+- **Images**:
+  - Create diagrams for `images/`:
+    - `weather_service_diagram.png`: Nodes with clients (computers) sending location requests to a server (weather service) via `/get_weather`, receiving weather responses.
+    - `led_panel_diagram.png`: Battery node (client) sending `led_number`, `state` requests to LED panel node (server) via `/set_led`, receiving `success` responses.
+  - Use tools like Draw.io, Inkscape, or GIMP to create diagrams.
+
+- **Best Practices**:
+  - Use services for one-time actions or queries, not continuous data.
+  - Prefer asynchronous calls for non-blocking client behavior.
+  - Define clear request and response message structures.
+  - Ensure unique service names to avoid conflicts.
+
+## Next Steps
+
+You’ve learned what ROS2 services are, using weather and LED control analogies to understand the client-server model. Next, you’ll:
+- Create a ROS2 service server in Python or C++ (e.g., for `/set_led`).
+- Create a ROS2 service client to call the service.
+- Explore `turtlesim` services (e.g., `/turtle1/teleport_absolute`) from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Compare services with actions for long-running tasks.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

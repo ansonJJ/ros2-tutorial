@@ -1,0 +1,116 @@
+# 5.1 - What is a ROS2 Topic?
+
+This tutorial introduces **ROS2 topics**, a fundamental communication mechanism in the Robot Operating System 2 (ROS2), using a real-world radio analogy to make the concept accessible. Topics enable nodes to exchange data streams anonymously and unidirectionally, such as sensor data or velocity commands, as seen in [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md). You’ll learn the purpose of topics, their structure, and when to use them, preparing for creating publisher and subscriber nodes in future tutorials. The content is based on the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and aligns with ROS2 Jazzy Jalisco.
+
+## Prerequisites
+
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with Python (`my_py_pkg`) and C++ (`my_cpp_pkg`) packages, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md) to [3.8 - Creating a ROS2 C++ Node with OOP](Section%203%20-%20Your%20First%20ROS2%20Program/3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy`, including `turtlesim` (from `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Turtlesim Knowledge**: Familiarity with `turtlesim` and the `/turtle1/cmd_vel` topic from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- **RQT Graph**: Understanding of `rqt_graph` for visualizing node connections from [4.4 - Using RQT and RQT Graph](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.4%20-%20Using%20RQT%20and%20RQT%20Graph.md).
+- **Terminal**: A `bash`-compatible terminal (e.g., Terminator, installed via `sudo apt install terminator`).
+
+## Understanding ROS2 Topics with a Radio Analogy
+
+To grasp ROS2 topics, consider a simplified analogy with a radio transmitter and receivers, inspired by the course transcript. While not technically precise for radio systems, this analogy illustrates how topics work in ROS2.
+
+### The Analogy
+
+Imagine a **radio transmitter** broadcasting music on a frequency, say **98.7 FM**, which we’ll treat as a name for simplicity. This frequency is like a **ROS2 topic**, a named channel for data exchange. The transmitter is a **publisher**, sending data (music) to the 98.7 topic using an FM signal (a specific **message type**). To listen, you tune your **phone** to 98.7 FM, making it a **subscriber** that decodes the FM signal to play the music. Both publisher and subscriber must use the same topic name (98.7) and message type (FM) for communication to work—if the phone tries to decode an AM signal, it fails.
+
+Now, suppose you also tune your **car** and a **radio player** to 98.7 FM. Both become subscribers, receiving the same music from the transmitter. This shows a topic can have **multiple subscribers**. Additionally, another transmitter might broadcast on 98.7 FM (e.g., a different station), making it a second **publisher**. All subscribers receive data from both publishers, illustrating **multiple publishers** on one topic. If two stations overlap, subscribers get mixed signals, a scenario ROS2 handles by delivering all messages.
+
+In ROS2 terms:
+- **Nodes**: The transmitter, phone, car, and radio player are nodes (blue boxes in the analogy).
+- **Publishers**: Nodes like the transmitter contain publishers, sending data to a topic (e.g., 98.7).
+- **Subscribers**: Nodes like the phone contain subscribers, receiving data from the topic.
+- **Anonymity**: Publishers don’t know who subscribes, and subscribers don’t know who publishes—they only interact with the topic.
+- **Flexibility**: A node can have multiple publishers and subscribers. For example, the car might subscribe to 98.7 FM and publish its GPS coordinates to a `car_location` topic, which another node (e.g., a computer) subscribes to, using a different message type (e.g., GPS coordinates).
+
+This flexibility allows various combinations:
+- One publisher, multiple subscribers (e.g., one transmitter, many devices).
+- Multiple publishers, one subscriber (e.g., two stations, one phone).
+- No publishers (subscribers receive nothing).
+- No subscribers (publishers send data to no one).
+- A node with multiple publishers/subscribers (e.g., a transmitter publishing FM on 98.7 and AM on 101.3, or a car publishing and subscribing).
+
+### Visualizing the Analogy
+
+The following diagram illustrates the radio analogy applied to ROS2 topics:
+
+![ROS2 Topic Analogy](images/topic_radio_analogy.png "Radio analogy for ROS2 topics with publishers and subscribers")
+
+- **Nodes**: Transmitter 1, Transmitter 2, Phone, Car, Radio Player, Computer.
+- **Topics**: `98.7` (FM music), `101.3` (AM music), `car_location` (GPS coordinates).
+- **Publishers**: Transmitter 1 and 2 publish to `98.7` (FM); Transmitter 2 also publishes to `101.3` (AM); Car publishes to `car_location` (GPS).
+- **Subscribers**: Phone, Car, Radio Player subscribe to `98.7` (FM); Car subscribes to `101.3` (AM); Computer subscribes to `car_location` (GPS).
+
+## Key Concepts of ROS2 Topics
+
+Based on the [ROS2 Documentation](https://docs.ros.org/en/jazzy/Concepts/About-Topics.html) and the analogy, here are the core aspects of ROS2 topics:
+
+1. **Definition**:
+   - A topic is a **named bus** over which nodes exchange messages, acting as a channel for **unidirectional data streams**.
+   - Example: In [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md), the `/turtle1/cmd_vel` topic carries velocity commands (`geometry_msgs/msg/Twist`) from `/teleop_turtle` to `/turtlesim`.
+
+2. **Topic Names**:
+   - Topics have unique names (e.g., `/turtle1/cmd_vel`, `car_location`).
+   - Names must start with a letter and can include letters, numbers, underscores, tildes, and slashes (e.g., `/namespace/topic_name`).
+   - **Note**: The analogy’s “98.7” is invalid in ROS2 (numeric start); it’s a simplified example. Valid names follow ROS2 naming conventions, covered later in the course.
+
+3. **Message Types**:
+   - Each topic is associated with a specific **message type** (e.g., `geometry_msgs/msg/Twist`, `sensor_msgs/msg/LaserScan`).
+   - Publishers and subscribers must use the same message type, defined in ROS2 message packages (e.g., `geometry_msgs`).
+   - Example: If a publisher sends `Twist` messages, subscribers expecting `String` messages will fail.
+
+4. **Publishers and Subscribers**:
+   - **Publishers** send messages to a topic (e.g., a sensor node publishing laser data).
+   - **Subscribers** receive messages from a topic (e.g., a navigation node subscribing to laser data).
+   - A node can have multiple publishers and subscribers across different topics.
+
+5. **Anonymity**:
+   - Publishers and subscribers are **anonymous**:
+     - Publishers don’t know who subscribes.
+     - Subscribers don’t know who publishes.
+     - Communication occurs solely through the topic name and message type.
+   - This enables modular, decoupled systems.
+
+6. **Multiplicity**:
+   - A topic can have **multiple publishers** (e.g., two sensors publishing to `/scan`).
+   - A topic can have **multiple subscribers** (e.g., multiple nodes processing `/scan`).
+   - Combinations include:
+     - One publisher, many subscribers.
+     - Many publishers, one subscriber.
+     - No publishers (subscribers receive nothing).
+     - No subscribers (publishers send to no one).
+
+7. **Unidirectional Communication**:
+   - Topics support **one-way data streams** (no responses from subscribers to publishers).
+   - Use cases include sensor data, robot commands, or status updates.
+
+8. **Middleware**:
+   - Topics are implemented via the **DDS (Data Distribution Service)** middleware in ROS2.
+   - ROS2 client libraries (`rclpy` for Python, `rclcpp` for C++) abstract DDS, simplifying publisher/subscriber creation.
+
+9. **Language Support**:
+   - Nodes can use topics in any ROS2-supported language (e.g., Python with `rclpy`, C++ with `rclcpp`), as shown in [3.5 - Creating a ROS2 Python Node](Section%203%20-%20Your%20First%20ROS2%20Program/3.5%20-%20Creating%20a%20ROS2%20Python%20Node.md) and [3.7 - Creating a ROS2 C++ Node](Section%203%20-%20Your%20First%20ROS2%20Program/3.7%20-%20Creating%20a%20ROS2%20C++%20Node.md).
+
+10. **Use Cases**:
+    - Topics are ideal for **continuous data streams**, such as:
+      - Sensor data (e.g., laser scans, camera images).
+      - Robot commands (e.g., velocity for `turtlesim`).
+      - Status updates (e.g., battery levels).
+    - Unlike services (request-response) or actions (goal-oriented), topics are for ongoing, one-way communication.
+
+## Notes
+
+- **Analogy Limitations**:
+  - The radio analogy simplifies ROS2 topics for beginners but isn’t fully accurate:
+    - Radio frequencies (e.g., “98.7”) don’t match ROS2 naming rules (must start

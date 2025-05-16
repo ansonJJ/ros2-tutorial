@@ -1,0 +1,441 @@
+# 6.10 - Experimenting with ROS2 Services Using Turtlesim
+
+This tutorial demonstrates how to **experiment with ROS2 services** using the `turtlesim` package, focusing on the `/clear`, `/spawn`, and `/kill` services to manipulate the turtle’s environment. It builds on the service concepts from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md), [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md), [6.3 - Writing a Python Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.3%20-%20Writing%20a%20Python%20Service%20Client%20(Non-OOP).md), [6.4 - Writing a Python Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.4%20-%20Writing%20a%20Python%20Service%20Client%20(OOP).md), [6.5 - Writing a C++ Service Server](Section%206%20-%20ROS2%20Services/6.5%20-%20Writing%20a%20C%2B%2B%20Service%20Server.md), [6.6 - Writing a C++ Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.6%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(Non-OOP).md), [6.7 - Writing a C++ Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.7%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(OOP).md), [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md), and [6.9 - Remapping ROS2 Services at Runtime](Section%206%20-%20ROS2%20Services/6.9%20-%20Remapping%20ROS2%20Services%20at%20Runtime.md), topic knowledge from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md), and the `turtlesim` introduction from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md). You’ll list `turtlesim` services, inspect their interfaces, and call them via the command line to clear the turtle’s trace, spawn new turtles, and remove turtles. This tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `turtlesim` and `std_srvs`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Service Knowledge**: Understanding of ROS2 services, servers, clients, and introspection from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) through [6.9 - Remapping ROS2 Services at Runtime](Section%206%20-%20ROS2%20Services/6.9%20-%20Remapping%20ROS2%20Services%20at%20Runtime.md).
+- **Topic Knowledge**: Familiarity with ROS2 topics and `turtlesim` from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md).
+- **Turtlesim Knowledge**: Familiarity with `turtlesim` nodes (`turtlesim_node`, `turtle_teleop_key`) from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- **CLI Tools**: Familiarity with `ros2 service` and `ros2 interface` from [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md) and `ros2 node` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - `turtlesim` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-turtlesim`).
+  - `std_srvs` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-std-srvs`).
+
+## Step-by-Step Instructions
+
+### Step 1: Launch Turtlesim and Teleop
+
+Start the `turtlesim` node and teleop node to create a turtle environment.
+
+1. **Run Turtlesim Node**:
+   Start the `turtlesim_node`:
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   ros2 run turtlesim turtlesim_node
+   ```
+   **Expected Output**: A window opens with a turtle (`turtle1`) at the center (coordinates ~5.5, 5.5).
+
+2. **Run Teleop Node**:
+   In a new terminal, start the `turtle_teleop_key` node to control the turtle:
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   ros2 run turtlesim turtle_teleop_key
+   ```
+   **Expected Output**: The terminal shows control instructions (e.g., arrow keys to move the turtle).
+
+3. **Move the Turtle**:
+   Use the arrow keys in the teleop terminal to move `turtle1`, creating a visible trail in the `turtlesim` window.
+
+**Screenshot**: Turtlesim window with `turtle1` and trail:
+
+![Turtlesim Window](images/turtlesim_window_with_trail.png "Turtlesim window with turtle1 and trail")
+
+### Step 2: List Turtlesim Services
+
+Use `ros2 service list` to identify `turtlesim` services.
+
+1. **Run the Command**:
+   In a new terminal:
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   ros2 service list
+   ```
+   **Expected Output (partial)**:
+   ```
+   /clear
+   /kill
+   /reset
+   /spawn
+   /turtle1/set_pen
+   /turtle1/teleport_absolute
+   /turtle1/teleport_relative
+   /turtlesim/describe_parameters
+   /turtlesim/get_parameter_types
+   /turtlesim/get_parameters
+   /turtlesim/list_parameters
+   /turtlesim/set_parameters
+   /turtlesim/set_parameters_atomically
+   /turtlesim/get_type_description
+   /turtle_teleop_key/describe_parameters
+   ...
+   ```
+
+   **Explanation**:
+   - **User-Defined Services**: `/clear`, `/kill`, `/reset`, `/spawn`, `/turtle1/set_pen`, `/turtle1/teleport_absolute`, `/turtle1/teleport_relative` are specific to `turtlesim`.
+   - **Node-Generated Services**: Services like `/turtlesim/describe_parameters` and `/turtle_teleop_key/describe_parameters` are parameter-related, auto-generated per node, as noted in [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md).
+   - **Service Naming**: Names use verbs (e.g., `clear`, `kill`, `spawn`), indicating actions, per ROS2 naming conventions.
+
+**Screenshot**: `ros2 service list` with `turtlesim` services:
+
+![Ros2 Service List Turtlesim](images/ros2_service_list_turtlesim.png "ros2 service list with turtlesim services")
+
+### Step 3: Experiment with the `/clear` Service
+
+Inspect and call the `/clear` service to remove the turtle’s trail.
+
+1. **Check Service Type**:
+   Run:
+   ```bash
+   ros2 service type /clear
+   ```
+   **Expected Output**:
+   ```
+   std_srvs/srv/Empty
+   ```
+
+2. **Inspect Interface**:
+   Run:
+   ```bash
+   ros2 interface show std_srvs/srv/Empty
+   ```
+   **Expected Output**:
+   ```
+   ---
+   ```
+
+   **Explanation**:
+   - The `Empty` interface has no request or response fields, only the `---` separator, indicating an action with no data (valid in ROS2).
+   - Calling `/clear` triggers the server to clear the trail without needing input.
+
+3. **Call the Service**:
+   Run:
+   ```bash
+   ros2 service call /clear std_srvs/srv/Empty "{}"
+   ```
+   **Expected Output**:
+   ```
+   waiting for service to become available...
+   requester: making request: std_srvs.srv.Empty_Request()
+
+   response:
+   std_srvs.srv.Empty_Response()
+   ```
+   **Turtlesim Output**:
+   ```
+   [INFO] [turtlesim]: Clearing turtlesim
+   ```
+
+   **Alternative Call**:
+   Omit the empty request:
+   ```bash
+   ros2 service call /clear std_srvs/srv/Empty
+   ```
+   **Result**: The turtle’s trail disappears in the `turtlesim` window.
+
+4. **Test Again**:
+   Move the turtle with teleop to create a new trail, then call `/clear` again to confirm the trail is removed.
+
+**Screenshot**: Turtlesim before and after `/clear`:
+
+![Turtlesim Clear](images/turtlesim_clear_before_after.png "Turtlesim window before and after /clear")
+
+### Step 4: Experiment with the `/spawn` Service
+
+Inspect and call the `/spawn` service to add a new turtle.
+
+1. **Check Service Type**:
+   Run:
+   ```bash
+   ros2 service type /spawn
+   ```
+   **Expected Output**:
+   ```
+   turtlesim/srv/Spawn
+   ```
+
+2. **Inspect Interface**:
+   Run:
+   ```bash
+   ros2 interface show turtlesim/srv/Spawn
+   ```
+   **Expected Output**:
+   ```
+   float32 x
+   float32 y
+   float32 theta
+   string name
+   ---
+   string name
+   ```
+
+   **Explanation**:
+   - **Request**:
+     - `x` (float32): X-coordinate (0.0 to 11.0 in `turtlesim`).
+     - `y` (float32): Y-coordinate (0.0 to 11.0).
+     - `theta` (float32): Orientation in radians (0.0 default).
+     - `name` (string): Optional turtle name; if empty, a unique name (e.g., `turtle2`) is generated.
+   - **Response**:
+     - `name` (string): The assigned turtle name (provided or generated).
+
+3. **Call the Service**:
+   Spawn a turtle at (5.0, 5.0) named `my_turtle`:
+   ```bash
+   ros2 service call /spawn turtlesim/srv/Spawn "{x: 5.0, y: 5.0, theta: 0.0, name: 'my_turtle'}"
+   ```
+   **Expected Output**:
+   ```
+   waiting for service to become available...
+   requester: making request: turtlesim.srv.Spawn_Request(x=5.0, y=5.0, theta=0.0, name='my_turtle')
+
+   response:
+   turtlesim.srv.Spawn_Response(name='my_turtle')
+   ```
+   **Turtlesim Output**:
+   ```
+   [INFO] [turtlesim]: Spawning turtle [my_turtle] at x=[5.000000], y=[5.000000], theta=[0.000000]
+   ```
+
+   **Result**: A new turtle (`my_turtle`) appears at (5.0, 5.0) facing forward.
+
+4. **Call Without Name**:
+   Spawn another turtle without a name:
+   ```bash
+   ros2 service call /spawn turtlesim/srv/Spawn "{x: 2.0, y: 2.0, theta: 1.57}"
+   ```
+   **Expected Output**:
+   ```
+   requester: making request: turtlesim.srv.Spawn_Request(x=2.0, y=2.0, theta=1.57, name='')
+
+   response:
+   turtlesim.srv.Spawn_Response(name='turtle2')
+   ```
+   **Turtlesim Output**:
+   ```
+   [INFO] [turtlesim]: Spawning turtle [turtle2] at x=[2.000000], y=[2.000000], theta=[1.570000]
+   ```
+
+   **Result**: A turtle named `turtle2` appears at (2.0, 2.0), rotated ~90 degrees (1.57 radians).
+
+**Screenshot**: Turtlesim with spawned turtles:
+
+![Turtlesim Spawn](images/turtlesim_spawn_my_turtle.png "Turtlesim with my_turtle and turtle2")
+
+### Step 5: Experiment with the `/kill` Service
+
+Inspect and call the `/kill` service to remove a turtle.
+
+1. **Check Service Type**:
+   Run:
+   ```bash
+   ros2 service type /kill
+   ```
+   **Expected Output**:
+   ```
+   turtlesim/srv/Kill
+   ```
+
+2. **Inspect Interface**:
+   Run:
+   ```bash
+   ros2 interface show turtlesim/srv/Kill
+   ```
+   **Expected Output**:
+   ```
+   string name
+   ---
+   ```
+
+   **Explanation**:
+   - **Request**: `name` (string): Name of the turtle to remove (e.g., `my_turtle`, `turtle1`, `turtle2`).
+   - **Response**: Empty.
+
+3. **Call the Service**:
+   Remove `my_turtle`:
+   ```bash
+   ros2 service call /kill turtlesim/srv/Kill "{name: 'my_turtle'}"
+   ```
+   **Expected Output**:
+   ```
+   waiting for service to become available...
+   requester: making request: turtlesim.srv.Kill_Request(name='my_turtle')
+
+   response:
+   turtlesim.srv.Kill_Response()
+   ```
+   **Turtlesim Output**:
+   ```
+   [INFO] [turtlesim]: Killing turtle [my_turtle]
+   ```
+
+   **Result**: `my_turtle` disappears from the `turtlesim` window.
+
+4. **Remove `turtle1`**:
+   Remove the default turtle:
+   ```bash
+   ros2 service call /kill turtlesim/srv/Kill "{name: 'turtle1'}"
+   ```
+   **Expected Output**:
+   ```
+   requester: making request: turtlesim.srv.Kill_Request(name='turtle1')
+
+   response:
+   turtlesim.srv.Kill_Response()
+   ```
+   **Turtlesim Output**:
+   ```
+   [INFO] [turtlesim]: Killing turtle [turtle1]
+   ```
+
+   **Result**: `turtle1` disappears, leaving `turtle2` (if spawned).
+
+**Screenshot**: Turtlesim after killing `my_turtle`:
+
+![Turtlesim Kill](images/turtlesim_kill_my_turtle.png "Turtlesim after killing my_turtle")
+
+### Step 6: Explore Other Services
+
+Inspect and test additional `turtlesim` services to encourage practice.
+
+1. **List Services Again**:
+   Run:
+   ```bash
+   ros2 service list
+   ```
+   **Focus on**:
+   - `/reset`: Resets the simulation (removes all turtles, clears trails, spawns `turtle1`).
+   - `/turtle1/set_pen`: Adjusts pen settings (e.g., color, width).
+   - `/turtle1/teleport_absolute`: Moves a turtle to a specific position.
+   - `/turtle1/teleport_relative`: Moves a turtle relative to its current position.
+
+2. **Example: Inspect `/turtle1/teleport_absolute`**:
+   Run:
+   ```bash
+   ros2 service type /turtle1/teleport_absolute
+   ```
+   **Output**:
+   ```
+   turtlesim/srv/TeleportAbsolute
+   ```
+   Run:
+   ```bash
+   ros2 interface show turtlesim/srv/TeleportAbsolute
+   ```
+   **Output**:
+   ```
+   float32 x
+   float32 y
+   float32 theta
+   ---
+   ```
+
+3. **Call `/turtle1/teleport_absolute`**:
+   Move `turtle1` to (8.0, 8.0):
+   ```bash
+   ros2 service call /turtle1/teleport_absolute turtlesim/srv/TeleportAbsolute "{x: 8.0, y: 8.0, theta: 0.0}"
+   ```
+
+   **Result**: `turtle1` instantly moves to (8.0, 8.0).
+
+**Screenshot**: Turtlesim after teleporting `turtle1`:
+
+![Turtlesim Teleport](images/turtlesim_teleport_absolute.png "Turtlesim after teleporting turtle1")
+
+### Step 7: Understand the Workflow
+
+- **Service Discovery**:
+  - Use `ros2 service list` to find `turtlesim` services (`/clear`, `/spawn`, `/kill`, etc.).
+  - Ignore node-generated services (e.g., `/turtlesim/describe_parameters`).
+- **Interface Inspection**:
+  - `ros2 service type` identifies the interface (e.g., `std_srvs/srv/Empty`, `turtlesim/srv/Spawn`).
+  - `ros2 interface show` reveals request/response fields (e.g., `x`, `y`, `name` for `/spawn`).
+- **Service Calls**:
+  - Use `ros2 service call <service> <interface> "{field: value, ...}"` with proper JSON-like syntax (spaces after colons/commas).
+  - Empty interfaces (e.g., `/clear`) require no fields (`{}` or omitted).
+  - Optional fields (e.g., `name` in `/spawn`) can be skipped, using defaults (e.g., generated names like `turtle2`).
+- **Turtlesim Services**:
+  - `/clear`: Clears trails (no input).
+  - `/spawn`: Adds turtles at specified coordinates with optional names.
+  - `/kill`: Removes turtles by name.
+  - Others (`/reset`, `/set_pen`, `/teleport_absolute`, `/teleport_relative`) offer additional control.
+- **Naming Convention**:
+  - Service names use verbs (e.g., `clear`, `spawn`, `kill`), reflecting actions, per ROS2 conventions.
+- **Practice**:
+  - Experiment with all services to understand their effects.
+  - Combine with topic control (e.g., `/turtle1/cmd_vel`) from [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md).
+
+### Troubleshooting
+
+- **No Services Listed**:
+  - Ensure `turtlesim_node` is running: `ros2 run turtlesim turtlesim_node`.
+  - Source ROS2: `source /opt/ros/jazzy/setup.bash`.
+  - Check `ros2 node list` for `/turtlesim`.
+- **Service Call Fails**:
+  - Verify service name with `ros2 service list`.
+  - Use autocompletion for interface (e.g., `std` + `Tab` for `std_srvs`).
+  - Ensure correct syntax: `"{x: 5.0, y: 5.0}"` with spaces.
+  - Check `turtlesim` logs for errors.
+- **Turtle Not Spawning/Killing**:
+  - Confirm coordinates are valid (0.0 to 11.0 for `x`, `y`).
+  - Use correct turtle name (e.g., `my_turtle`, not `myturtle`) for `/kill`.
+  - Check response for generated names (e.g., `turtle2`).
+- **Unknown Interface**:
+  - Verify `turtlesim` and `std_srvs`: `sudo apt install ros-jazzy-turtlesim ros-jazzy-std-srvs`.
+  - Use `ros2 interface list | grep -E 'Empty|Spawn|Kill'` to confirm availability.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Turtlesim Services**: `/clear`, `/spawn`, `/kill`, `/reset`, `/turtle1/set_pen`, `/turtle1/teleport_absolute`, `/turtle1/teleport_relative` are provided by `turtlesim_node`, per [Turtlesim Documentation](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Introducing-Turtlesim.html).
+  - **std_srvs/Empty**: Empty request/response, used by `/clear`, per [std_srvs/Empty](http://docs.ros.org/en/jazzy/api/std_srvs/srv/Empty.html).
+  - **turtlesim/Spawn**: `x`, `y`, `theta`, `name` (request), `name` (response), per [turtlesim/Spawn](http://docs.ros.org/en/jazzy/api/turtlesim/srv/Spawn.html).
+  - **turtlesim/Kill**: `name` (request), empty response, per [turtlesim/Kill](http://docs.ros.org/en/jazzy/api/turtlesim/srv/Kill.html).
+  - **Service Call Syntax**: JSON-like `{field: value}` with spaces, defaults for optional fields, per [ROS2 Service Call](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/CLI-Tools/Understanding-ROS2-Services.html#calling-a-service).
+  - **Naming Conventions**: Verbs for service names, per [ROS2 Interface Design](https://design.ros2.org/articles/interface_definition.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2”.
+  - Specified executable names (`turtlesim_node`, `turtle_teleop_key`).
+  - Clarified `/clear` uses `std_srvs/srv/Empty`, with empty request/response.
+  - Noted `/spawn`’s optional `name` field and default `theta` (0.0).
+  - Emphasized verb-based service names (e.g., `clear`, `spawn`, `kill`).
+  - Suggested practicing all services, aligning with the transcript’s encouragement.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 6 - ROS2 Services/`, following 6.1–6.9.
+  - Uses `images/` for five screenshots: `turtlesim_window_with_trail.png`, `ros2_service_list_turtlesim.png`, `turtlesim_clear_before_after.png`, `turtlesim_spawn_my_turtle.png`, `turtlesim_kill_my_turtle.png`, `turtlesim_teleport_absolute.png`.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `turtlesim_window_with_trail.png`: Turtlesim with `turtle1` and trail.
+    - `ros2_service_list_turtlesim.png`: `ros2 service list` with `turtlesim` services.
+    - `turtlesim_clear_before_after.png`: Turtlesim before/after `/clear` (split image or two images).
+    - `turtlesim_spawn_my_turtle.png`: Turtlesim with `my_turtle` and `turtle2`.
+    - `turtlesim_kill_my_turtle.png`: Turtlesim after killing `my_turtle`.
+    - `turtlesim_teleport_absolute.png`: Turtlesim after teleporting `turtle1`.
+  - Use GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use autocompletion for service names and interfaces (e.g., `tur` + `Tab` for `turtlesim`).
+  - Include spaces in `ros2 service call` syntax (e.g., `{x: 5.0, y: 5.0}`).
+  - Verify turtle names in `/kill` calls using `/spawn` responses or `ros2 service list` (e.g., `/turtle1/...`).
+  - Experiment with all services to understand their functionality.
+  - Combine with topic control (e.g., `/turtle1/cmd_vel`) for comprehensive `turtlesim` practice.
+
+## Next Steps
+
+You’ve learned to experiment with `turtlesim` services (`/clear`, `/spawn`, `/kill`, etc.) using command-line tools, gaining hands-on experience with ROS2 services. Next, you’ll:
+- Write Python or C++ clients to call `turtlesim` services programmatically (e.g., `6.11 - Writing a Turtlesim Service Client`).
+- Create custom service interfaces for advanced `turtlesim` interactions (e.g., `6.12 - Creating Custom ROS2 Services`).
+- Combine topics and services in a node (e.g., move a turtle via `/cmd_vel` and teleport via `/teleport_absolute`).
+- Explore ROS2 parameters, as hinted in [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md).
+- Apply `turtlesim` services to the final course project, as suggested in the transcript.
+- Use `ros2 doctor` to diagnose `turtlesim`-related issues.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

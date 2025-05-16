@@ -1,0 +1,379 @@
+# 6.6 - Writing a C++ Service Client (Non-OOP)
+
+This tutorial demonstrates how to create a **non-object-oriented (non-OOP) C++ service client** in ROS2 to call the `example_interfaces/srv/AddTwoInts` service, which accepts two integers (`a` and `b`) and returns their sum. This client complements the C++ service server from [6.5 - Writing a C++ Service Server](Section%206%20-%20ROS2%20Services/6.5%20-%20Writing%20a%20C%2B%2B%20Service%20Server.md), mirrors the non-OOP Python client from [6.3 - Writing a Python Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.3%20-%20Writing%20a%20Python%20Service%20Client%20(Non-OOP).md), and builds on service concepts from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md), the OOP Python client from [6.4 - Writing a Python Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.4%20-%20Writing%20a%20Python%20Service%20Client%20(OOP).md), and topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md). You’ll write a simple C++ client in the `my_cpp_pkg` package, use asynchronous service calls with `spin_until_future_complete`, and test it with the server from 6.2 or 6.5. This non-OOP client is ideal for quick server testing, though the Python client from 6.3 may be preferred for rapid iteration with `--symlink-install`. This tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `example_interfaces`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_cpp_pkg` C++ package and `my_py_pkg` Python package, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Package Dependencies**: Ensure `my_cpp_pkg`’s `package.xml` includes `rclcpp` and `example_interfaces` (added in [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md)):
+  ```xml
+  <depend>rclcpp</depend>
+  <depend>example_interfaces</depend>
+  ```
+- **Service Server**: The `add_two_ints_server` node from [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md) or [6.5 - Writing a C++ Service Server](Section%206%20-%20ROS2%20Services/6.5%20-%20Writing%20a%20C%2B%2B%20Service%20Server.md), providing the `/add_two_ints` service.
+- **Service Knowledge**: Understanding of ROS2 services, asynchronous calls, and futures from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) and [6.3 - Writing a Python Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.3%20-%20Writing%20a%20Python%20Service%20Client%20(Non-OOP).md).
+- **Topic Knowledge**: Familiarity with ROS2 nodes and topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md).
+- **CLI Tools**: Familiarity with `ros2 node` and `ros2 service` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`code`): `sudo snap install --classic code`.
+  - `example_interfaces` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-example-interfaces`).
+
+## Step-by-Step Instructions
+
+### Step 1: Review the Service Interface
+
+The `AddTwoInts` service interface defines the request and response messages. Confirm its structure for the client.
+
+1. **Show the Interface**:
+   Run:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 interface show example_interfaces/srv/AddTwoInts
+   ```
+   **Expected Output**:
+   ```
+   int64 a
+   int64 b
+   ---
+   int64 sum
+   ```
+   - **Request**: `a` (int64), `b` (int64).
+   - **Response**: `sum` (int64).
+   - **Separator**: `---` splits request and response.
+
+**Screenshot**: `ros2 interface show example_interfaces/srv/AddTwoInts`:
+
+![Interface Show AddTwoInts](images/interface_show_add_two_ints.png "ros2 interface show example_interfaces/srv/AddTwoInts")
+
+### Step 2: Create the Non-OOP Service Client
+
+Write a non-OOP C++ source file in `my_cpp_pkg` to call `/add_two_ints` using asynchronous requests.
+
+1. **Navigate to the Package**:
+   Go to the `my_cpp_pkg` source directory:
+   ```bash
+   cd ~/ros2_ws/src/my_cpp_pkg/src
+   ```
+
+2. **Create the Source File**:
+   Create `add_two_ints_client_no_oop.cpp`:
+   ```bash
+   touch add_two_ints_client_no_oop.cpp
+   ```
+
+3. **Write the Code**:
+   Open `add_two_ints_client_no_oop.cpp` in VS Code:
+   ```bash
+   code add_two_ints_client_no_oop.cpp
+   ```
+   Add the following code, which creates a simple client to send a request with `a=6`, `b=2`:
+
+   ```cpp
+   #include <rclcpp/rclcpp.hpp>
+   #include <example_interfaces/srv/add_two_ints.hpp>
+   #include <chrono>
+   #include <memory>
+
+   using namespace std::chrono_literals;
+
+   int main(int argc, char *argv[])
+   {
+       rclcpp::init(argc, argv);
+       auto node = std::make_shared<rclcpp::Node>("add_two_ints_client_no_oop");
+
+       auto client = node->create_client<example_interfaces::srv::AddTwoInts>("add_two_ints");
+       while (!client->wait_for_service(1s)) {
+           RCLCPP_WARN(node->get_logger(), "Waiting for add_two_ints server");
+       }
+
+       auto request = std::make_shared<example_interfaces::srv::AddTwoInts::Request>();
+       request->a = 6;
+       request->b = 2;
+
+       auto future = client->async_send_request(request);
+       rclcpp::spin_until_future_complete(node, future);
+
+       auto response = future.get();
+       RCLCPP_INFO(node->get_logger(), "%d + %d = %d", (int)request->a, (int)request->b, (int)response->sum);
+
+       rclcpp::shutdown();
+       return 0;
+   }
+   ```
+
+   **Code Explanation**:
+   - **Includes**:
+     - `<rclcpp/rclcpp.hpp>`: ROS2 C++ client library.
+     - `<example_interfaces/srv/add_two_ints.hpp>`: `AddTwoInts` service interface.
+     - `<chrono>`: For `std::chrono::seconds` in `wait_for_service`.
+     - `<memory>`: For `std::shared_ptr` and `std::make_shared`.
+   - **Namespace**:
+     - `using namespace std::chrono_literals`: Enables `1s` for `1 second`.
+   - **Main Function**:
+     - Initializes ROS2 with `rclcpp::init`.
+     - Creates a node named `add_two_ints_client_no_oop` using `std::make_shared<rclcpp::Node>`.
+     - Creates a client with `node->create_client<AddTwoInts>("add_two_ints")`.
+     - Waits for the service with `client->wait_for_service(1s)`, logging a warning if unavailable.
+     - Creates a request with `std::make_shared<AddTwoInts::Request>()`, setting `a=6`, `b=2`.
+     - Sends the request asynchronously with `client->async_send_request(request)`, returning a future.
+     - Spins until the future completes with `rclcpp::spin_until_future_complete(node, future)`.
+     - Retrieves the response with `future.get()`, a `std::shared_ptr<AddTwoInts::Response>`.
+     - Logs the equation (e.g., “6 + 2 = 8”) with type casting to `int` for display.
+     - Shuts down with `rclcpp::shutdown`.
+
+**Screenshot**: `add_two_ints_client_no_oop.cpp` in VS Code:
+
+![AddTwoIntsClientNoOOP Code](images/add_two_ints_client_no_oop_cpp_code.png "add_two_ints_client_no_oop.cpp in VS Code")
+
+### Step 3: Update CMakeLists.txt
+
+Configure `add_two_ints_client_no_oop.cpp` as an executable in `my_cpp_pkg`’s `CMakeLists.txt`.
+
+1. **Edit CMakeLists.txt**:
+   Open `~/ros2_ws/src/my_cpp_pkg/CMakeLists.txt` in VS Code:
+   ```bash
+   cd ~/ros2_ws/src/my_cpp_pkg
+   code CMakeLists.txt
+   ```
+   Add the executable and its dependencies. The updated `CMakeLists.txt` should include:
+
+   ```cmake
+   cmake_minimum_required(VERSION 3.8)
+   project(my_cpp_pkg)
+
+   if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+     add_compile_options(-Wall -Wextra -Wpedantic)
+   endif()
+
+   # Find dependencies
+   find_package(ament_cmake REQUIRED)
+   find_package(rclcpp REQUIRED)
+   find_package(example_interfaces REQUIRED)
+
+   # Include directories
+   include_directories(include)
+
+   # Add executables
+   add_executable(robot_news_station src/robot_news_station.cpp)
+   ament_target_dependencies(robot_news_station rclcpp example_interfaces)
+
+   add_executable(smartphone src/smartphone.cpp)
+   ament_target_dependencies(smartphone rclcpp example_interfaces)
+
+   add_executable(add_two_ints_server src/add_two_ints_server.cpp)
+   ament_target_dependencies(add_two_ints_server rclcpp example_interfaces)
+
+   add_executable(add_two_ints_client_no_oop src/add_two_ints_client_no_oop.cpp)
+   ament_target_dependencies(add_two_ints_client_no_oop rclcpp example_interfaces)
+
+   # Install executables
+   install(TARGETS
+     robot_news_station
+     smartphone
+     add_two_ints_server
+     add_two_ints_client_no_oop
+     DESTINATION lib/${PROJECT_NAME}
+   )
+
+   if(BUILD_TESTING)
+     find_package(ament_lint_auto REQUIRED)
+     ament_lint_auto_find_test_dependencies()
+   endif()
+
+   ament_package()
+   ```
+
+   **Changes**:
+   - Added `add_executable(add_two_ints_client_no_oop src/add_two_ints_client_no_oop.cpp)`.
+   - Added `ament_target_dependencies(add_two_ints_client_no_oop rclcpp example_interfaces)`.
+   - Included `add_two_ints_client_no_oop` in the `install(TARGETS ...)` section.
+
+**Screenshot**: Updated `CMakeLists.txt`:
+
+![CMakeLists Updated](images/cmakelists_add_two_ints_client_no_oop.png "CMakeLists.txt with add_two_ints_client_no_oop")
+
+### Step 4: Build the Package
+
+Build the `my_cpp_pkg` package to compile the new executable.
+
+1. **Navigate to Workspace**:
+   ```bash
+   cd ~/ros2_ws
+   ```
+
+2. **Build the Package**:
+   Build `my_cpp_pkg` specifically to preserve `my_py_pkg`’s `--symlink-install`:
+   ```bash
+   colcon build --packages-select my_cpp_pkg
+   ```
+
+3. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+**Screenshot**: `colcon build` output:
+
+![Colcon Build](images/colcon_build_add_two_ints_client_no_oop_cpp.png "colcon build for my_cpp_pkg")
+
+### Step 5: Run and Test the Service Client
+
+Run the server (C++ or Python) and the C++ client to test the request.
+
+1. **Run the Server**:
+   Start the C++ server from [6.5 - Writing a C++ Service Server](Section%206%20-%20ROS2%20Services/6.5%20-%20Writing%20a%20C%2B%2B%20Service%20Server.md):
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_cpp_pkg add_two_ints_server
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_server]: Add Two Ints Server has been started
+   ```
+   Alternatively, use the Python server from [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md):
+   ```bash
+   ros2 run my_py_pkg add_two_ints_server
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_server]: Add Two Ints Server has been started
+   ```
+
+2. **Run the Client**:
+   Run the C++ client:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_cpp_pkg add_two_ints_client_no_oop
+   ```
+   **Expected Output** (with server running):
+   ```
+   [INFO] [add_two_ints_client_no_oop]: 6 + 2 = 8
+   ```
+   **Server Output** (C++ server):
+   ```
+   [INFO] [add_two_ints_server]: 6 + 2 = 8
+   ```
+   **Server Output** (Python server):
+   ```
+   [INFO] [add_two_ints_server]: 6 + 2 = 8
+   ```
+
+3. **Test Without Server**:
+   Stop the server (`Ctrl+C`). Run the client:
+   ```bash
+   ros2 run my_cpp_pkg add_two_ints_client_no_oop
+   ```
+   **Expected Output**:
+   ```
+   [WARN] [add_two_ints_client_no_oop]: Waiting for add_two_ints server
+   [WARN] [add_two_ints_client_no_oop]: Waiting for add_two_ints server
+   ...
+   ```
+   Restart the server, and the client should log:
+   ```
+   [INFO] [add_two_ints_client_no_oop]: 6 + 2 = 8
+   ```
+
+**Screenshot**: C++ client and C++ server output:
+
+![CppClient CppServer Test](images/cpp_client_cpp_server_test_no_oop.png "C++ client with C++ server logs")
+
+### Step 6: Understand the Workflow
+
+- **Initialization**:
+  - Initializes ROS2 and creates a node named `add_two_ints_client_no_oop`.
+- **Client Creation**:
+  - Creates a client for `/add_two_ints` using `create_client<AddTwoInts>`.
+- **Service Availability**:
+  - Uses `wait_for_service(1s)` to check for the server, logging warnings if unavailable.
+- **Request Creation**:
+  - Creates a `std::shared_ptr<AddTwoInts::Request>`, setting `a=6`, `b=2`.
+  - Unlike topic messages (e.g., `std_msgs::msg::String`), service requests use `shared_ptr`.
+- **Asynchronous Call**:
+  - Sends the request with `async_send_request`, returning a future.
+  - Uses `spin_until_future_complete` to wait for the response.
+- **Response Handling**:
+  - Retrieves the response with `future.get()`, a `std::shared_ptr<AddTwoInts::Response>`.
+  - Logs the equation (e.g., “6 + 2 = 8”).
+- **Testing Utility**:
+  - Ideal for quick server testing, similar to the Python non-OOP client.
+  - Python client (6.3) is faster for iteration with `--symlink-install`, as no rebuild is needed.
+
+### Troubleshooting
+
+- **Build Errors**:
+  - Ensure `rclcpp` and `example_interfaces` are in `package.xml` and `CMakeLists.txt`.
+  - Verify `find_package(example_interfaces REQUIRED)` and `ament_target_dependencies(add_two_ints_client_no_oop rclcpp example_interfaces)`.
+  - Check include: `#include <example_interfaces/srv/add_two_ints.hpp>`.
+- **Client Hangs**:
+  - Verify the server is running: `ros2 run my_cpp_pkg add_two_ints_server` or `ros2 run my_py_pkg add_two_ints_server`.
+  - Check service availability: `ros2 service list`.
+  - Source the workspace: `source ~/ros2_ws/install/setup.bash`.
+- **No Response**:
+  - Ensure `async_send_request` and `spin_until_future_complete` are called.
+  - Verify `response->sum` matches the interface.
+  - Check server logs for request processing.
+- **Include Errors**:
+  - Confirm `example_interfaces` is installed: `sudo apt install ros-jazzy-example-interfaces`.
+  - Rebuild and source.
+- **Future Errors**:
+  - Ensure `future.get()` is called after `spin_until_future_complete`.
+  - Check `wait_for_service` loop exits when the server is available.
+
+### Notes
+
+- **Fact-Checking**:
+  - **AddTwoInts Interface**: `a`, `b` (int64) in request, `sum` (int64) in response, per [example_interfaces/AddTwoInts](http://docs.ros.org/en/jazzy/api/example_interfaces/srv/AddTwoInts.html).
+  - **Client Creation**: `rclcpp::create_client` uses service type and name, per [ROS2 rclcpp Services](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Service-And-Client-Cpp.html#writing-the-client-node).
+  - **Asynchronous Call**: `async_send_request` returns a future, used with `spin_until_future_complete`, per [ROS2 C++ Client Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Service-And-Client-Cpp.html#call-the-service-asynchronously).
+  - **Request Type**: Service requests use `std::shared_ptr`, unlike topic messages, per [ROS2 rclcpp API](https://docs.ros.org/en/jazzy/api/rclcpp/classrclcpp_1_1Client.html).
+  - **Symlink Install**: Python clients benefit from `--symlink-install` for rapid testing, per [ROS2 colcon Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html).
+  - **Language Agnostic**: C++ clients work with C++ or Python servers, per [ROS2 Concepts: Client Libraries](https://docs.ros.org/en/jazzy/Concepts/About-Client-Libraries.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2”.
+  - Specified `example_interfaces/srv/add_two_ints.hpp` (`.hpp`).
+  - Clarified `std::shared_ptr` for request and response, contrasting with topic messages.
+  - Noted `async_send_request` and `spin_until_future_complete` for non-OOP clients.
+  - Emphasized Python client’s advantage with `--symlink-install` for testing.
+  - Used `a=6`, `b=2` (sum=8) as example, consistent with transcript.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 6 - ROS2 Services/`, following 6.1–6.5.
+  - Uses `images/` for four screenshots: `interface_show_add_two_ints.png`, `add_two_ints_client_no_oop_cpp_code.png`, `cmakelists_add_two_ints_client_no_oop.png`, `colcon_build_add_two_ints_client_no_oop_cpp.png`, `cpp_client_cpp_server_test_no_oop.png`.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `interface_show_add_two_ints.png`: Reuse from 6.2–6.5 if unchanged.
+    - `add_two_ints_client_no_oop_cpp_code.png`: `add_two_ints_client_no_oop.cpp` in VS Code.
+    - `cmakelists_add_two_ints_client_no_oop.png`: `CMakeLists.txt` with `add_two_ints_client_no_oop`.
+    - `colcon_build_add_two_ints_client_no_oop_cpp.png`: `colcon build` output.
+    - `cpp_client_cpp_server_test_no_oop.png`: C++ client and C++ server logs.
+  - Use GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use `wait_for_service` with a timeout (e.g., `1s`) to ensure server availability.
+  - Use `std::shared_ptr` for service requests and responses.
+  - Log request/response for debugging.
+  - Use `--packages-select` to avoid overwriting `--symlink-install` for Python packages.
+  - Prefer Python non-OOP client (6.3) for rapid server testing due to `--symlink-install`.
+
+## Next Steps
+
+You’ve created a non-OOP C++ service client for `/add_two_ints`, tested it with C++ and Python servers, and learned its role in quick server testing. Next, you’ll:
+- Create an OOP C++ service client integrated into a node (e.g., `6.7 - Writing a C++ Service Client (OOP)`).
+- Explore ROS2 service introspection with CLI tools (e.g., `ros2 service list`, `ros2 service info`).
+- Create custom service interfaces, as hinted in the transcript.
+- Apply services to `turtlesim` (e.g., `/turtle1/teleport_absolute`) from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Combine services with topics in a node (e.g., trigger service calls from topic callbacks).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

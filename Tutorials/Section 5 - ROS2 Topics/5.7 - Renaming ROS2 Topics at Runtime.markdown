@@ -1,0 +1,323 @@
+# 5.7 - Renaming ROS2 Topics at Runtime
+
+This tutorial demonstrates how to **rename ROS2 topics at runtime** using the `--ros-args` and `-r` flags with the `ros2 run` command, building on node renaming from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md). You’ll remap the `/robot_news` topic to `/abc` for the Python publisher (`robot_news_station`) and subscriber (`smartphone`) nodes from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.3 - Writing a Python Subscriber](Section%205%20-%20ROS2%20Communication/5.3%20-%20Writing%20a%20Python%20Subscriber.md) in the `my_py_pkg` package. You’ll also test with the C++ publisher and subscriber from [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C++%20Publisher.md) and [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C++%20Subscriber.md) to demonstrate flexibility. This technique is useful for matching nodes with different topic names without modifying code, such as when integrating third-party nodes. The tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_py_pkg` Python package and `my_cpp_pkg` C++ package, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C++%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Publisher/Subscriber Nodes**: The following nodes from previous tutorials:
+  - Python publisher (`robot_news_station`) and subscriber (`smartphone`) from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.3 - Writing a Python Subscriber](Section%205%20-%20ROS2%20Communication/5.3%20-%20Writing%20a%20Python%20Subscriber.md).
+  - C++ publisher (`robot_news_station`) and subscriber (`smartphone`) from [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C++%20Publisher.md) and [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C++%20Subscriber.md).
+- **Topic Concepts**: Understanding of ROS2 topics and remapping from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **CLI Tools**: Familiarity with `ros2 run`, `ros2 node`, and `ros2 topic` commands from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+
+## Step-by-Step Instructions
+
+### Step 1: Review Node Renaming
+
+You’ve previously learned to rename nodes at runtime using `--ros-args -r __node:=new_name` in [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md). Let’s review this with the Python publisher.
+
+1. **Run Publisher with Node Renaming**:
+   Start the Python `robot_news_station` node, renaming it to `my_station`:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg robot_news_station --ros-args -r __node:=my_station
+   ```
+   **Output**:
+   ```
+   [INFO] [my_station]: Robot News Station has been started
+   ```
+
+2. **Verify Node Name**:
+   In a new terminal, list nodes:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /my_station
+   ```
+
+3. **Check Topics**:
+   List topics to confirm the topic name:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /parameter_events
+   /robot_news
+   /rosout
+   ```
+   The topic remains `/robot_news`, as only the node was renamed.
+
+**Screenshot**: `ros2 node list` showing `/my_station`:
+
+![Node List](images/node_list_my_station.png "ros2 node list showing /my_station")
+
+### Step 2: Rename the Topic for the Publisher
+
+Now, remap the `/robot_news` topic to `/abc` while also renaming the node.
+
+1. **Stop the Publisher**:
+   Stop the running publisher with `Ctrl+C`.
+
+2. **Run Publisher with Node and Topic Renaming**:
+   Run the Python publisher, renaming the node to `my_station` and the topic to `/abc`:
+   ```bash
+   ros2 run my_py_pkg robot_news_station --ros-args -r __node:=my_station -r robot_news:=abc
+   ```
+   **Output**:
+   ```
+   [INFO] [my_station]: Robot News Station has been started
+   ```
+   - `--ros-args`: Specifies runtime arguments, used once for multiple remappings.
+   - `-r __node:=my_station`: Renames the node to `my_station`.
+   - `-r robot_news:=abc`: Remaps the topic from `robot_news` to `abc`. The leading `/` is optional, as ROS2 adds it automatically.
+
+3. **Verify Node Name**:
+   List nodes:
+   ```bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /my_station
+   ```
+
+4. **Verify Topic Name**:
+   List topics:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /abc
+   /parameter_events
+   /rosout
+   ```
+   The topic is now `/abc` instead of `/robot_news`.
+
+5. **View Messages**:
+   Echo the remapped topic:
+   ```bash
+   ros2 topic echo /abc
+   ```
+   **Expected Output**:
+   ```
+   data: Hi, this is C-3PO from the Robot News Station
+   ---
+   data: Hi, this is C-3PO from the Robot News Station
+   ---
+   ```
+   Messages appear every 0.5 seconds, confirming the publisher is publishing to `/abc`.
+
+**Screenshot**: `ros2 topic list` showing `/abc`:
+
+![Topic List ABC](images/topic_list_abc.png "ros2 topic list showing /abc")
+
+**Screenshot**: `ros2 topic echo /abc`:
+
+![Topic Echo ABC](images/topic_echo_abc.png "ros2 topic echo /abc showing messages")
+
+### Step 3: Run Subscriber Without Remapping
+
+Test the subscriber without remapping to show it doesn’t receive messages.
+
+1. **Run Python Subscriber**:
+   Start the Python `smartphone` subscriber, which subscribes to `/robot_news`:
+   ```bash
+   ros2 run my_py_pkg smartphone
+   ```
+   **Output**:
+   ```
+   [INFO] [smartphone]: Smartphone has been started
+   ```
+   No messages are logged, as the subscriber listens to `/robot_news`, but the publisher uses `/abc`.
+
+2. **Verify Topics**:
+   List topics:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /abc
+   /parameter_events
+   /robot_news
+   /rosout
+   ```
+   Both `/abc` (publisher) and `/robot_news` (subscriber) are active, indicating a mismatch.
+
+**Screenshot**: `ros2 topic list` showing both topics:
+
+![Topic List Mismatch](images/topic_list_mismatch.png "ros2 topic list showing /abc and /robot_news")
+
+### Step 4: Remap the Topic for the Subscriber
+
+Remap the subscriber’s topic to `/abc` to receive messages.
+
+1. **Stop the Subscriber**:
+   Stop the subscriber with `Ctrl+C`.
+
+2. **Run Subscriber with Topic Remapping**:
+   Run the Python subscriber, remapping `robot_news` to `abc`:
+   ```bash
+   ros2 run my_py_pkg smartphone --ros-args -r robot_news:=abc
+   ```
+   **Output**:
+   ```
+   [INFO] [smartphone]: Smartphone has been started
+   [INFO] [smartphone]: Hi, this is C-3PO from the Robot News Station
+   [INFO] [smartphone]: Hi, this is C-3PO from the Robot News Station
+   ```
+   The subscriber now receives messages every 0.5 seconds, as it subscribes to `/abc`.
+
+**Screenshot**: Subscriber receiving messages after remapping:
+
+![Subscriber Remapped](images/subscriber_remapped.png "Python subscriber receiving messages on /abc")
+
+### Step 5: Test with C++ Nodes
+
+Verify remapping works with C++ nodes to demonstrate language-agnostic compatibility.
+
+1. **Stop All Nodes**:
+   Stop the Python publisher and subscriber with `Ctrl+C`.
+
+2. **Run C++ Publisher with Topic Remapping**:
+   Run the C++ `robot_news_station` node, remapping `robot_news` to `abc`:
+   ```bash
+   ros2 run my_cpp_pkg robot_news_station --ros-args -r robot_news:=abc
+   ```
+   **Output**:
+   ```
+   [INFO] [robot_news_station]: Robot News Station has been started
+   ```
+
+3. **Run C++ Subscriber with Topic Remapping**:
+   Run the C++ `smartphone` node, remapping `robot_news` to `abc`:
+   ```bash
+   ros2 run my_cpp_pkg smartphone --ros-args -r robot_news:=abc
+   ```
+   **Output**:
+   ```
+   [INFO] [smartphone]: Smartphone has been started
+   [INFO] [smartphone]: Hi, this is R2-D2 from the Robot News Station
+   [INFO] [smartphone]: Hi, this is R2-D2 from the Robot News Station
+   ```
+
+4. **Verify Topics**:
+   List topics:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /abc
+   /parameter_events
+   /rosout
+   ```
+
+**Screenshot**: C++ subscriber receiving messages after remapping:
+
+![Subscriber C++ Remapped](images/subscriber_cpp_remapped.png "C++ subscriber receiving messages on /abc")
+
+### Step 6: Combine Python and C++ Nodes
+
+Test interoperability by remapping topics across languages.
+
+1. **Stop the C++ Subscriber**:
+   Stop the C++ subscriber with `Ctrl+C`.
+
+2. **Run Python Subscriber with Remapping**:
+   Run the Python subscriber, remapping to `/abc`:
+   ```bash
+   ros2 run my_py_pkg smartphone --ros-args -r robot_news:=abc
+   ```
+   **Output**:
+   ```
+   [INFO] [smartphone]: Smartphone has been started
+   [INFO] [smartphone]: Hi, this is R2-D2 from the Robot News Station
+   [INFO] [smartphone]: Hi, this is R2-D2 from the Robot News Station
+   ```
+   The Python subscriber receives messages from the C++ publisher, confirming ROS2’s language-agnostic topic remapping.
+
+**Screenshot**: Python subscriber receiving C++ publisher messages:
+
+![Subscriber Cross Language](images/subscriber_cross_language.png "Python subscriber receiving C++ publisher messages on /abc")
+
+## Troubleshooting
+
+- **No Messages Received**:
+  - Verify topic names match using `ros2 topic list`. Ensure publisher and subscriber use the same topic (e.g., `/abc`).
+  - Check remapping syntax: `-r old_topic:=new_topic` (no leading `/` needed).
+  - Confirm nodes are running (`ros2 node list`).
+- **Topic Not Found**:
+  - Use `ros2 topic list` to check active topics.
+  - Ensure the publisher or subscriber is active.
+- **Node Not Renamed**:
+  - Verify the node remapping syntax: `-r __node:=new_name`.
+  - Check `ros2 node list` for the new name.
+- **Syntax Errors in `ros2 run`**:
+  - Ensure `--ros-args` is written once, followed by multiple `-r` flags (e.g., `--ros-args -r __node:=new_name -r topic:=new_topic`).
+  - Use correct topic names from the code (e.g., `robot_news`, not `/robot_news`).
+- **Persistent `/parameter_events` or `/rosout`**:
+  - These are standard topics and persist with node activity. Ignore unless causing issues.
+
+## Notes
+
+- **Fact-Checking**:
+  - **Topic Remapping**: The syntax `-r old_topic:=new_topic` remaps topics at runtime, per [ROS2 CLI: Remapping](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html#remapping).
+  - **Node Remapping**: `-r __node:=new_name` renames nodes, per [ROS2 CLI: Node Remapping](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Nodes.html#remapping).
+  - **ROS Args**: `--ros-args` is used once for multiple remappings, per [ROS2 CLI: ROS Arguments](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html#ros-arguments).
+  - **Topic Names**: Leading `/` is optional in remapping (e.g., `robot_news:=abc` maps to `/abc`), per [ROS2 Naming](https://design.ros2.org/articles/topic_and_service_names.html).
+  - **Language Agnostic**: Remapping works across Python and C++ nodes, per [ROS2 Concepts: Topics](https://docs.ros.org/en/jazzy/Concepts/About-Topics.html).
+  - **Topic Verification**: `ros2 topic list` and `ros2 topic echo` confirm remapped topics, per [ROS2 CLI: Topics](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2” and “Ross args” to `--ros-args`.
+  - Clarified that `--ros-args` is used once for multiple `-r` remappings.
+  - Noted that topic names in code (e.g., `robot_news`) omit the leading `/`, but outputs show `/robot_news` or `/abc`.
+  - Emphasized remapping’s utility for third-party nodes or unmodifiable code.
+
+- **Repository Structure**:
+  - Places the tutorial in `Section 5 - ROS2 Communication/`, following [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+  - Uses `images/` for five screenshots: `node_list_my_station.png`, `topic_list_abc.png`, `topic_echo_abc.png`, `topic_list_mismatch.png`, `subscriber_remapped.png`, `subscriber_cpp_remapped.png`, `subscriber_cross_language.png`.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `node_list_my_station.png`: `ros2 node list` showing `/my_station`.
+    - `topic_list_abc.png`: `ros2 topic list` showing `/abc`.
+    - `topic_echo_abc.png`: `ros2 topic echo /abc`.
+    - `topic_list_mismatch.png`: `ros2 topic list` showing `/abc` and `/robot_news`.
+    - `subscriber_remapped.png`: Python subscriber receiving messages on `/abc`.
+    - `subscriber_cpp_remapped.png`: C++ subscriber receiving messages on `/abc`.
+    - `subscriber_cross_language.png`: Python subscriber receiving C++ publisher messages on `/abc`.
+  - Use tools like GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use `-r old_topic:=new_topic` without leading `/` for simplicity.
+  - Combine node and topic remappings under a single `--ros-args`.
+  - Verify remappings with `ros2 topic list` and `ros2 topic echo`.
+  - Use remapping to integrate nodes with mismatched topic names.
+
+## Next Steps
+
+You’ve learned to rename ROS2 topics at runtime, enabling flexible integration of the `robot_news` publisher and subscriber nodes from tutorials 5.2–5.5. Next, you’ll:
+- Visualize topic connections with `rqt_graph`, building on [4.4 - Using RQT and RQT Graph](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.4%20-%20Using%20RQT%20and%20RQT%20Graph.md).
+- Create custom message types for topics, as hinted in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md).
+- Apply topics to control `turtlesim` (e.g., publishing to `/turtle1/cmd_vel`), per [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Explore services or actions as alternative communication mechanisms.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

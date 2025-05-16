@@ -1,0 +1,255 @@
+# 6.9 - Remapping ROS2 Services at Runtime
+
+This tutorial demonstrates how to **remap ROS2 services at runtime** using the `--ros-args -r` command-line argument, allowing you to rename services without modifying code. It focuses on the `example_interfaces/srv/AddTwoInts` service, building on the service server and client implementations from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md), [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md), [6.3 - Writing a Python Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.3%20-%20Writing%20a%20Python%20Service%20Client%20(Non-OOP).md), [6.4 - Writing a Python Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.4%20-%20Writing%20a%20Python%20Service%20Client%20(OOP).md), [6.5 - Writing a C++ Service Server](Section%206%20-%20ROS2%20Services/6.5%20-%20Writing%20a%20C%2B%2B%20Service%20Server.md), [6.6 - Writing a C++ Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.6%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(Non-OOP).md), [6.7 - Writing a C++ Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.7%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(OOP).md), and [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md). It parallels topic remapping from [5.7 - Renaming ROS2 Topics at Runtime](Section%205%20-%20ROS2%20Communication/5.7%20-%20Renaming%20ROS2%20Topics%20at%20Runtime.md). You’ll rename the `/add_two_ints` service to `/abc` on both server and client sides, using the Python server and client from `my_py_pkg` for rapid testing with `--symlink-install`. This tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `example_interfaces`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_cpp_pkg` C++ package and `my_py_pkg` Python package, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Package Dependencies**: Ensure `my_py_pkg`’s `package.xml` includes `rclpy` and `example_interfaces` (added in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md)):
+  ```xml
+  <depend>rclpy</depend>
+  <depend>example_interfaces</depend>
+  ```
+- **Service Server and Client**: The `add_two_ints_server` and `add_two_ints_client` nodes from [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md) and [6.3 - Writing a Python Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.3%20-%20Writing%20a%20Python%20Service%20Client%20(Non-OOP).md) or [6.4 - Writing a Python Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.4%20-%20Writing%20a%20Python%20Service%20Client%20(OOP).md).
+- **Service Knowledge**: Understanding of ROS2 services, servers, and clients from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) through [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md).
+- **Topic Remapping**: Familiarity with topic remapping from [5.7 - Renaming ROS2 Topics at Runtime](Section%205%20-%20ROS2%20Communication/5.7%20-%20Renaming%20ROS2%20Topics%20at%20Runtime.md).
+- **CLI Tools**: Familiarity with `ros2 service` from [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md) and `ros2 node` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - `example_interfaces` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-example-interfaces`).
+
+## Step-by-Step Instructions
+
+### Step 1: Verify the Default Service Name
+
+Run the Python service server and check the default service name.
+
+1. **Run the Server**:
+   Start the Python server from [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md):
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg add_two_ints_server
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_server]: Add Two Ints Server has been started
+   ```
+
+2. **List Services**:
+   Run:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 service list
+   ```
+   **Expected Output (partial)**:
+   ```
+   /add_two_ints
+   /add_two_ints_server/describe_parameters
+   ...
+   ```
+
+   **Explanation**:
+   - `/add_two_ints` is the default service name defined in the server code.
+   - Other services (e.g., `/add_two_ints_server/describe_parameters`) are node-generated for parameters, as noted in [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md).
+
+**Screenshot**: `ros2 service list` with default `/add_two_ints`:
+
+![Ros2 Service List Default](images/ros2_service_list_default_add_two_ints.png "ros2 service list with /add_two_ints")
+
+### Step 2: Remap the Service on the Server
+
+Stop the server and restart it with a remapped service name.
+
+1. **Stop the Server**:
+   Press `Ctrl+C` in the server terminal.
+
+2. **Run with Remapping**:
+   Remap `/add_two_ints` to `/abc`:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg add_two_ints_server --ros-args -r /add_two_ints:=/abc
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_server]: Add Two Ints Server has been started
+   ```
+
+3. **List Services**:
+   Run:
+   ```bash
+   ros2 service list
+   ```
+   **Expected Output (partial)**:
+   ```
+   /abc
+   /add_two_ints_server/describe_parameters
+   ...
+   ```
+
+   **Explanation**:
+   - The service is now `/abc` instead of `/add_two_ints`.
+   - Node-generated services (e.g., `/add_two_ints_server/describe_parameters`) remain unchanged, as they are tied to the node name, not the user-defined service.
+
+**Screenshot**: `ros2 service list` with remapped `/abc`:
+
+![Ros2 Service List Remapped](images/ros2_service_list_remapped_abc.png "ros2 service list with /abc")
+
+### Step 3: Test the Client Without Remapping
+
+Run the Python client without remapping to demonstrate the failure.
+
+1. **Run the Client**:
+   Use the non-OOP client from [6.3 - Writing a Python Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.3%20-%20Writing%20a%20Python%20Service%20Client%20(Non-OOP).md):
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg add_two_ints_client_no_oop
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_client_no_oop]: Waiting for /add_two_ints server
+   [INFO] [add_two_ints_client_no_oop]: Waiting for /add_two_ints server
+   ...
+   ```
+
+2. **Stop the Client**:
+   Press `Ctrl+C`.
+
+   **Explanation**:
+   - The client looks for `/add_two_ints`, but the server provides `/abc`, causing the client to wait indefinitely.
+
+**Screenshot**: Client waiting for `/add_two_ints`:
+
+![Client Waiting](images/client_waiting_add_two_ints.png "Client waiting for /add_two_ints")
+
+### Step 4: Remap the Service on the Client
+
+Run the client with the remapped service name to connect successfully.
+
+1. **Run the Client with Remapping**:
+   Remap `/add_two_ints` to `/abc`:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg add_two_ints_client_no_oop --ros-args -r /add_two_ints:=/abc
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_client_no_oop]: 6 + 2 = 8
+   ```
+   **Server Output**:
+   ```
+   [INFO] [add_two_ints_server]: 6 + 2 = 8
+   ```
+
+   **Explanation**:
+   - The client now looks for `/abc`, matching the server’s remapped service, allowing the request to succeed.
+
+**Screenshot**: Client and server with remapped `/abc`:
+
+![Client Server Remapped](images/client_server_remapped_abc.png "Client and server with /abc")
+
+### Step 5: Test with the OOP Client
+
+Repeat the test with the OOP client to confirm consistency.
+
+1. **Run the OOP Client Without Remapping**:
+   Use the OOP client from [6.4 - Writing a Python Service Client (OOP)](Section%206%20-%20ROS2%20Services/6.4%20-%20Writing%20a%20Python%20Service%20Client%20(OOP).md):
+   ```bash
+   ros2 run my_py_pkg add_two_ints_client --ros-args -r /add_two_ints:=/abc
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_client]: 6 + 2 = 8
+   ```
+   **Server Output**:
+   ```
+   [INFO] [add_two_ints_server]: 6 + 2 = 8
+   ```
+
+   **Note**: The OOP client behaves the same as the non-OOP client, as both use the same service name in code.
+
+### Step 6: Understand the Workflow
+
+- **Service Remapping**:
+  - Use `--ros-args -r <old_service>:=<new_service>` to rename services at runtime, similar to topic remapping (`<old_topic>:=<new_topic>`).
+  - Syntax: `ros2 run <package> <executable> --ros-args -r /old_name:=/new_name`.
+- **Server-Side**:
+  - Remapping changes the service name advertised by the server (e.g., `/add_two_ints` to `/abc`).
+  - Only the user-defined service is affected; node-generated services (e.g., parameter services) remain unchanged.
+- **Client-Side**:
+  - Clients must use the same remapped name to connect to the server.
+  - Without remapping, clients wait for the original service name, resulting in a failure to connect.
+- **Use Cases**:
+  - Avoid naming conflicts in multi-node systems.
+  - Test services under different names without code changes.
+  - Integrate with existing systems expecting specific service names.
+- **Python Advantage**:
+  - Python clients and servers with `--symlink-install` allow rapid testing without rebuilding, unlike C++ nodes.
+
+### Troubleshooting
+
+- **Service Not Found**:
+  - Verify the server is running: `ros2 service list` should show `/abc` (or `/add_two_ints` if not remapped).
+  - Check remapping syntax: `ros2 run my_py_pkg add_two_ints_server --ros-args -r /add_two_ints:=/abc`.
+  - Source the workspace: `source ~/ros2_ws/install/setup.bash`.
+- **Client Waits Indefinitely**:
+  - Ensure the client uses the same remapped name: `--ros-args -r /add_two_ints:=/abc`.
+  - Confirm the server is running with the remapped name: `ros2 service list`.
+- **Syntax Errors**:
+  - Use absolute service names (e.g., `/add_two_ints`, not `add_two_ints`).
+  - Ensure `:=` in remapping (e.g., `/add_two_ints:=/abc`).
+- **Node-Generated Services**:
+  - Ignore parameter services (e.g., `/add_two_ints_server/describe_parameters`); they are not remapped unless the node name changes.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Service Remapping**: Uses `--ros-args -r <old>:=<new>`, identical to topic remapping, per [ROS2 CLI Remapping](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html#remapping).
+  - **AddTwoInts Interface**: Unchanged by remapping, per [example_interfaces/AddTwoInts](http://docs.ros.org/en/jazzy/api/example_interfaces/srv/AddTwoInts.html).
+  - **Node-Generated Services**: Parameter services are tied to the node name, not remapped unless the node is renamed, per [ROS2 Parameters](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-CPP.html).
+  - **Client-Server Matching**: Clients must match the server’s service name, per [ROS2 Services](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Service-And-Client-Python.html).
+  - **Symlink Install**: Python nodes benefit from `--symlink-install` for rapid iteration, per [ROS2 colcon Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2”.
+  - Specified `--ros-args -r` for remapping, aligning with topic remapping syntax.
+  - Clarified that only the user-defined service (`/add_two_ints`) is remapped, not node-generated services.
+  - Noted that both non-OOP and OOP clients behave similarly for remapping.
+  - Used `/abc` as the remapped name, as per the transcript.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 6 - ROS2 Services/`, following 6.1–6.8.
+  - Uses `images/` for four screenshots: `ros2_service_list_default_add_two_ints.png`, `ros2_service_list_remapped_abc.png`, `client_waiting_add_two_ints.png`, `client_server_remapped_abc.png`.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `ros2_service_list_default_add_two_ints.png`: `ros2 service list` with `/add_two_ints`.
+    - `ros2_service_list_remapped_abc.png`: `ros2 service list` with `/abc`.
+    - `client_waiting_add_two_ints.png`: Client waiting for `/add_two_ints` when server uses `/abc`.
+    - `client_server_remapped_abc.png`: Client and server logs with `/abc`.
+  - Use GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use absolute service names (e.g., `/add_two_ints`) for clarity.
+  - Test remapping with `ros2 service list` to confirm the new name.
+  - Remap both server and client consistently to avoid connection issues.
+  - Prefer Python nodes with `--symlink-install` for rapid remapping tests.
+  - Use meaningful remapped names (e.g., `/abc` is for demonstration; use descriptive names in practice).
+
+## Next Steps
+
+You’ve learned to remap ROS2 services at runtime, enabling flexible service naming for the `/add_two_ints` server and client. Next, you’ll:
+- Create custom service interfaces for complex data types (e.g., `6.10 - Creating Custom ROS2 Services`).
+- Apply services to `turtlesim` (e.g., `/turtle1/teleport_absolute`) from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Combine services with topics in a node (e.g., trigger service calls from topic callbacks).
+- Explore ROS2 parameters, as hinted in [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md).
+- Use `ros2 doctor` to diagnose remapping or service-related issues.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

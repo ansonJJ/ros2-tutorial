@@ -1,0 +1,371 @@
+# 5.5 - Writing a C++ Subscriber
+
+This tutorial demonstrates how to create a **C++ subscriber node** in ROS2 that listens to the `/robot_news` topic, receiving string messages published by the C++ publisher from [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C++%20Publisher.md) or the Python publisher from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md). Using the `my_cpp_pkg` package from [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C++%20Package.md), you’ll create a node named `smartphone` that acts like a smartphone receiving news updates, logging messages like “Hi, this is R2-D2 from the Robot News Station” or “Hi, this is C-3PO from the Robot News Station” to the terminal. The subscriber uses the `example_interfaces/msg/String` message type and demonstrates ROS2’s language-agnostic communication by interoperating with Python and C++ publishers. This tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_cpp_pkg` C++ package and `my_py_pkg` Python package, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C++%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **Publisher Nodes**: The `robot_news_station` C++ node from [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C++%20Publisher.md) and/or the Python node from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md), publishing to `/robot_news` with `example_interfaces/msg/String`.
+- **Node Knowledge**: Familiarity with C++ nodes and the node template from [3.7 - Creating a ROS2 C++ Node](Section%203%20-%20Your%20First%20ROS2%20Program/3.7%20-%20Creating%20a%20ROS2%20C++%20Node.md) and [3.8 - Creating a ROS2 C++ Node with OOP](Section%203%20-%20Your%20First%20ROS2%20Program/3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md).
+- **Topic Concepts**: Understanding of ROS2 topics (publishers, subscribers, message types) from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md).
+- **CLI Tools**: Knowledge of `ros2 node` and `ros2 topic` commands from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md).
+- **Development Tools**:
+  - Visual Studio Code with the ROS extension (`sudo snap install code --classic; code --install-extension ms-vscode.ros`).
+  - `colcon` for building (`sudo apt install python3-colcon-common-extensions`).
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+
+## Step-by-Step Instructions
+
+### Step 1: Create the Subscriber Node File
+
+1. **Navigate to the Package**:
+   Go to the `my_cpp_pkg` package’s `src/` directory in your workspace, created in [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C++%20Package.md):
+   ```bash
+   cd ~/ros2_ws/src/my_cpp_pkg/src
+   ```
+
+2. **Create the Node File**:
+   Create a new C++ file named `smartphone.cpp`:
+   ```bash
+   touch smartphone.cpp
+   ```
+
+3. **Open in VSCode**:
+   Launch VSCode from the workspace’s `src/` directory to enable ROS extension features:
+   ```bash
+   cd ~/ros2_ws/src
+   code .
+   ```
+   Open `smartphone.cpp` in VSCode. Save the file immediately to resolve initial include errors from the ROS extension (may take 5–10 seconds).
+
+### Step 2: Write the Subscriber Node Code
+
+Use the C++ node template from [3.8 - Creating a ROS2 C++ Node with OOP](Section%203%20-%20Your%20First%20ROS2%20Program/3.8%20-%20Creating%20a%20ROS2%20C++%20Node%20with%20OOP.md), modifying it to create a subscriber. The node will:
+- Be named `smartphone`.
+- Subscribe to the `/robot_news` topic using `example_interfaces/msg/String`.
+- Log received messages (e.g., “Hi, this is R2-D2 from the Robot News Station”) via a callback.
+- Log a startup message.
+
+Copy the following code into `smartphone.cpp`:
+
+```cpp
+#include <rclcpp/rclcpp.hpp>
+#include <example_interfaces/msg/string.hpp>
+#include <memory>
+
+using std::placeholders::_1;
+
+class SmartphoneNode : public rclcpp::Node
+{
+public:
+    SmartphoneNode() : Node("smartphone")
+    {
+        subscriber_ = this->create_subscription<example_interfaces::msg::String>(
+            "robot_news",
+            10,
+            std::bind(&SmartphoneNode::callback_robot_news, this, _1)
+        );
+        RCLCPP_INFO(this->get_logger(), "Smartphone has been started");
+    }
+
+private:
+    void callback_robot_news(const example_interfaces::msg::String::SharedPtr msg)
+    {
+        RCLCPP_INFO(this->get_logger(), "%s", msg->data.c_str());
+    }
+
+    rclcpp::Subscription<example_interfaces::msg::String>::SharedPtr subscriber_;
+};
+
+int main(int argc, char **argv)
+{
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<SmartphoneNode>();
+    rclcpp::spin(node);
+    rclcpp::shutdown();
+    return 0;
+}
+```
+
+**Code Explanation**:
+- **Includes**:
+  - `<rclcpp/rclcpp.hpp>`: ROS2 C++ client library for node and subscription functionality.
+  - `<example_interfaces/msg/string.hpp>`: Message type for subscribing to strings, with a `data` field (verified via `ros2 interface show example_interfaces/msg/String`).
+  - `<memory>`: For `std::placeholders`.
+- **Namespace**:
+  - `using std::placeholders::_1;` simplifies the callback binding for one argument.
+- **Class `SmartphoneNode`**:
+  - Inherits from `rclcpp::Node` with name `smartphone`.
+  - **Constructor**:
+    - Creates a subscription to `robot_news` with `example_interfaces::msg::String`, a queue size of 10, and a callback (`callback_robot_news`) bound with `std::bind` and `_1` for the message argument.
+    - Logs “Smartphone has been started”.
+  - **Private Members**:
+    - `subscriber_`: A shared pointer to a subscription of `example_interfaces::msg::String`.
+  - **Method `callback_robot_news`**:
+    - Receives a `const` shared pointer to a `String` message (`msg`).
+    - Logs `msg->data` using `c_str()` to convert the `std::string` to a C-style string for `RCLCPP_INFO`.
+- **Main Function**:
+  - Initializes ROS2, creates a shared pointer to the node, spins to process callbacks, and shuts down cleanly.
+
+**Screenshot**: The VSCode editor showing `smartphone.cpp`:
+
+![Subscriber Code](images/cpp_subscriber_code.png "VSCode showing smartphone.cpp")
+
+### Step 3: Verify Package Dependencies
+
+The code uses `example_interfaces/msg/String`, which was added to `my_cpp_pkg`’s `package.xml` and `CMakeLists.txt` in [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C++%20Publisher.md).
+
+1. **Check `package.xml`**:
+   Open `~/ros2_ws/src/my_cpp_pkg/package.xml` in VSCode and confirm:
+   ```xml
+   <depend>example_interfaces</depend>
+   ```
+   If missing, add it below `<depend>rclcpp</depend>` and save.
+
+2. **Check `CMakeLists.txt`**:
+   Open `~/ros2_ws/src/my_cpp_pkg/CMakeLists.txt` and confirm:
+   ```cmake
+   find_package(example_interfaces REQUIRED)
+   ```
+   If missing, add it below `find_package(rclcpp REQUIRED)` and save.
+
+**Screenshot**: `package.xml` with `example_interfaces`:
+
+![Package XML](images/cpp_package_xml.png "package.xml with example_interfaces dependency")
+
+### Step 4: Update `CMakeLists.txt` for the Executable
+
+Add the `smartphone.cpp` file as an executable in `my_cpp_pkg`’s `CMakeLists.txt`.
+
+1. **Edit `CMakeLists.txt`**:
+   Open `~/ros2_ws/src/my_cpp_pkg/CMakeLists.txt` in VSCode.
+   Add the following after the existing executables (e.g., `robot_news_station`):
+   ```cmake
+   add_executable(smartphone src/smartphone.cpp)
+   ament_target_dependencies(smartphone rclcpp example_interfaces)
+   install(TARGETS smartphone DESTINATION lib/${PROJECT_NAME})
+   ```
+   Example `CMakeLists.txt` snippet:
+   ```cmake
+   find_package(rclcpp REQUIRED)
+   find_package(example_interfaces REQUIRED)
+
+   add_executable(cpp_node src/cpp_node.cpp)
+   ament_target_dependencies(cpp_node rclcpp)
+
+   add_executable(robot_news_station src/robot_news_station.cpp)
+   ament_target_dependencies(robot_news_station rclcpp example_interfaces)
+
+   add_executable(smartphone src/smartphone.cpp)
+   ament_target_dependencies(smartphone rclcpp example_interfaces)
+
+   install(TARGETS
+     cpp_node
+     robot_news_station
+     smartphone
+     DESTINATION lib/${PROJECT_NAME}
+   )
+   ```
+
+**Screenshot**: Updated `CMakeLists.txt` with `smartphone`:
+
+![CMakeLists](images/cpp_cmakelists_subscriber.png "CMakeLists.txt with smartphone executable")
+
+2. **Save the File**:
+   Ensure `CMakeLists.txt` is saved.
+
+### Step 5: Build and Test the Subscriber
+
+1. **Build the Workspace**:
+   Navigate to the workspace root and build `my_cpp_pkg`:
+   ```bash
+   cd ~/ros2_ws
+   colcon build --packages-select my_cpp_pkg
+   ```
+   **Note**: C++ requires rebuilding after code changes due to compilation.
+
+2. **Source the Workspace**:
+   Source the updated workspace to access the new executable:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ```
+
+3. **Run the Subscriber**:
+   Start the `smartphone` node in a terminal:
+   ```bash
+   ros2 run my_cpp_pkg smartphone
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [smartphone]: Smartphone has been started
+   ```
+   The node runs but logs nothing further, as no messages are published yet.
+
+**Screenshot**: Terminal output of `ros2 run my_cpp_pkg smartphone`:
+
+![Node Output](images/cpp_subscriber_node_output.png "Terminal showing subscriber node startup")
+
+4. **Run the C++ Publisher**:
+   In a new terminal (source the environment: `source ~/ros2_ws/install/setup.bash`), start the C++ `robot_news_station` node from [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C++%20Publisher.md):
+   ```bash
+   ros2 run my_cpp_pkg robot_news_station
+   ```
+   **Publisher Output**:
+   ```
+   [INFO] [robot_news_station]: Robot News Station has been started
+   ```
+
+5. **Verify Subscriber Output with C++ Publisher**:
+   In the `smartphone` terminal, you should see messages logged every 0.5 seconds:
+   ```
+   [INFO] [smartphone]: Hi, this is R2-D2 from the Robot News Station
+   [INFO] [smartphone]: Hi, this is R2-D2 from the Robot News Station
+   ```
+   **Test Interruption**:
+   - Stop the C++ publisher with `Ctrl+C`. The subscriber continues running but logs no messages.
+   - Restart the publisher (`ros2 run my_cpp_pkg robot_news_station`). The subscriber resumes logging.
+
+**Screenshot**: Subscriber logging messages from the C++ publisher:
+
+![Subscriber Messages C++](images/cpp_subscriber_messages_cpp.png "Terminal showing C++ subscriber receiving C++ publisher messages")
+
+6. **Test with Python Publisher**:
+   Stop the C++ publisher (`Ctrl+C`). In a new terminal, start the Python `robot_news_station` node from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md):
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg robot_news_station
+   ```
+   **Subscriber Output**:
+   ```
+   [INFO] [smartphone]: Hi, this is C-3PO from the Robot News Station
+   [INFO] [smartphone]: Hi, this is C-3PO from the Robot News Station
+   ```
+   This demonstrates ROS2’s language-agnostic communication, as the C++ subscriber receives messages from the Python publisher.
+
+**Screenshot**: Subscriber logging messages from the Python publisher:
+
+![Subscriber Messages Python](images/cpp_subscriber_messages_python.png "Terminal showing C++ subscriber receiving Python publisher messages")
+
+7. **Verify the Node**:
+   In a new terminal (source the environment), check nodes:
+   ```bash
+   ros2 node list
+   ```
+   **Expected Output** (with Python publisher running):
+   ```
+   /robot_news_station
+   /smartphone
+   ```
+
+8. **Inspect Node Info**:
+   Verify the subscriber:
+   ```bash
+   ros2 node info /smartphone
+   ```
+   **Expected Output (partial)**:
+   ```
+   /smartphone
+     Subscribers:
+       /robot_news: example_interfaces/msg/String
+   ```
+
+**Screenshot**: `ros2 node info` output:
+
+![Node Info](images/cpp_subscriber_node_info.png "ros2 node info showing /robot_news subscriber")
+
+9. **List Topics**:
+   Check available topics:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /parameter_events
+   /robot_news
+   /rosout
+   ```
+
+## Troubleshooting
+
+- **Node Not Found**:
+  - Ensure the workspace is sourced: `source ~/ros2_ws/install/setup.bash`.
+  - Verify `my_cpp_pkg` built correctly: `colcon build --packages-select my_cpp_pkg`.
+- **No Messages Received**:
+  - Confirm a publisher is running (`ros2 run my_cpp_pkg robot_news_station` or `ros2 run my_py_pkg robot_news_station`).
+  - Verify the topic name: `/robot_news` (case-sensitive, ROS2 adds a leading `/`).
+  - Check `ros2 topic list` and `ros2 topic echo /robot_news` to ensure the publisher is active.
+- **Include Errors**:
+  - Save `smartphone.cpp` to resolve VSCode ROS extension errors (may take 5–10 seconds).
+  - Verify `<depend>example_interfaces</depend>` in `package.xml` and `find_package(example_interfaces REQUIRED)` in `CMakeLists.txt`.
+- **Linker Errors**:
+  - Ensure `ament_target_dependencies(smartphone rclcpp example_interfaces)` in `CMakeLists.txt`.
+  - Rebuild the workspace.
+- **Executable Not Found**:
+  - Check `CMakeLists.txt` for the `add_executable` and `install` entries for `smartphone`.
+  - Rebuild and source the workspace.
+- **Build Errors**:
+  - Remove build artifacts and rebuild:
+    ```bash
+    cd ~/ros2_ws
+    rm -rf build install log
+    colcon build --packages-select my_cpp_pkg
+    ```
+
+## Notes
+
+- **Fact-Checking**:
+  - **Subscriber Creation**: Verified `create_subscription<example_interfaces::msg::String>("robot_news", 10, std::bind(...))` syntax and queue size (10) per [ROS2 Tutorials: Subscriber](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Publisher-and-Subscriber-CPP.html).
+  - **Message Type**: Confirmed `example_interfaces/msg/String` has a `data` field via `ros2 interface show example_interfaces/msg/String`, per [ROS2 Interfaces](https://docs.ros.org/en/jazzy/Concepts/About-Interfaces.html).
+  - **Callback**: The callback receiving a `const SharedPtr` and accessing `msg->data.c_str()` aligns with [ROS2 rclcpp Subscriber](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Publisher-and-Subscriber-CPP.html).
+  - **Topic Name**: `robot_news` matches the publishers’ topic, and ROS2 adds a leading `/`, per [ROS2 Naming](https://design.ros2.org/articles/topic_and_service_names.html).
+  - **CMakeLists.txt**: `find_package`, `add_executable`, `ament_target_dependencies`, and `install` follow [ROS2 C++ Package Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html).
+  - **CLI Tools**: `ros2 node list`, `ros2 node info`, and `ros2 topic list` outputs match [ROS2 CLI Tools](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Nodes.html).
+  - **Dependencies**: `example_interfaces` is included in `ros-jazzy-desktop`, per [ROS2 Packages](https://docs.ros.org/en/jazzy/Installation.html).
+  - **Language Agnostic**: C++ subscriber receiving messages from C++ and Python publishers is valid, per [ROS2 Concepts: Topics](https://docs.ros.org/en/jazzy/Concepts/About-Topics.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Rosta” to “ROS2”.
+  - Specified `example_interfaces/msg/String` with `.hpp` for C++ (lowercase `string`).
+  - Used `create_subscription` (correct term) instead of “create subscriber”.
+  - Clarified `std::placeholders::_1` for callback binding with one argument.
+  - Emphasized `const SharedPtr` for the callback message parameter.
+  - Reused `example_interfaces` dependency from 5.4, avoiding redundant changes.
+
+- **Repository Structure**:
+  - Places the tutorial in `Section 5 - ROS2 Communication/`, following [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C++%20Publisher.md).
+  - Uses `images/` for six screenshots: `cpp_subscriber_code.png`, `cpp_package_xml.png`, `cpp_cmakelists_subscriber.png`, `cpp_subscriber_node_output.png`, `cpp_subscriber_messages_cpp.png`, `cpp_subscriber_messages_python.png`, `cpp_subscriber_node_info.png`. Reuses `cpp_package_xml.png` from 5.4.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `cpp_subscriber_code.png`: VSCode showing `smartphone.cpp`.
+    - `cpp_cmakelists_subscriber.png`: `CMakeLists.txt` with `smartphone`.
+    - `cpp_subscriber_node_output.png`: `ros2 run` output for `smartphone`.
+    - `cpp_subscriber_messages_cpp.png`: Subscriber logging C++ publisher messages.
+    - `cpp_subscriber_messages_python.png`: Subscriber logging Python publisher messages.
+    - `cpp_subscriber_node_info.png`: `ros2 node info` output.
+  - Use tools like GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Names node, file, and executable `smartphone` for consistency with Python subscriber.
+  - Uses `std::placeholders::_1` for callback binding, simplified by `using` directive.
+  - Places `callback_robot_news` in `private` as it’s internal (called by subscription).
+  - Logs node startup for user feedback.
+  - Uses VSCode ROS extension for autocompletion, critical for C++.
+
+## Next Steps
+
+You’ve created a C++ subscriber node that receives messages from `/robot_news`, interoperable with both C++ and Python publishers, completing a set of publisher-subscriber tutorials (5.2–5.5). Next, you’ll:
+- Use `rqt_topic` to inspect topic data, building on [4.4 - Using RQT and RQT Graph](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.4%20-%20Using%20RQT%20and%20RQT%20Graph.md).
+- Explore custom message types for topics, as hinted in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md).
+- Apply topics to control `turtlesim` (e.g., publishing to `/turtle1/cmd_vel`), per [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Learn other communication mechanisms (e.g., services, actions) for comparison.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

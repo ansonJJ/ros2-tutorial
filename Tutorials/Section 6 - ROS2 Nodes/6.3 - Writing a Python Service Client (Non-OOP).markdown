@@ -1,0 +1,348 @@
+# 6.3 - Writing a Python Service Client (Non-OOP)
+
+This tutorial demonstrates how to create a non-object-oriented (non-OOP) Python service client in ROS2 to call the `example_interfaces/srv/AddTwoInts` service, which sums two integers. Building on the service server from [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md), service concepts from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md), and topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md), you’ll write a simple script in the `my_py_pkg` package to send a request and receive a response asynchronously. This script serves as a reusable template for testing any ROS2 service, especially those with complex request structures that are difficult to test with `ros2 service call`. The tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), which includes `example_interfaces`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_py_pkg` Python package, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md) and [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Package Dependencies**: Ensure `my_py_pkg`’s `package.xml` includes `example_interfaces` as a dependency (added in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md)):
+  ```xml
+  <depend>example_interfaces</depend>
+  ```
+- **Service Server**: The `add_two_ints_server` node from [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md), providing the `/add_two_ints` service.
+- **Service Knowledge**: Understanding of ROS2 services, clients, servers, and asynchronous calls from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md).
+- **Topic Knowledge**: Familiarity with ROS2 nodes and topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md).
+- **CLI Tools**: Familiarity with `ros2 node`, `ros2 service`, and `ros2 interface` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`code`) for editing: `sudo snap install --classic code`.
+  - `example_interfaces` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-example-interfaces`).
+
+## Step-by-Step Instructions
+
+### Step 1: Review the Service Interface
+
+The `AddTwoInts` service interface defines the request and response messages. Revisit it to ensure the client sends the correct data.
+
+1. **Show the Interface**:
+   In a terminal, run:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 interface show example_interfaces/srv/AddTwoInts
+   ```
+   **Expected Output**:
+   ```
+   int64 a
+   int64 b
+   ---
+   int64 sum
+   ```
+   - **Request**: `a` (int64) and `b` (int64), sent by the client.
+   - **Response**: `sum` (int64), returned by the server.
+   - **Separator**: `---` distinguishes request from response.
+
+**Screenshot**: `ros2 interface show example_interfaces/srv/AddTwoInts`:
+
+![Interface Show AddTwoInts](images/interface_show_add_two_ints.png "ros2 interface show example_interfaces/srv/AddTwoInts")
+
+### Step 2: Create the Service Client Script
+
+Write a non-OOP Python script in the `my_py_pkg` package to call the `/add_two_ints` service asynchronously.
+
+1. **Navigate to the Package**:
+   Go to the `my_py_pkg` package:
+   ```bash
+   cd ~/ros2_ws/src/my_py_pkg/my_py_pkg
+   ```
+
+2. **Create the Script**:
+   Create a new file named `add_two_ints_client_no_oop.py`:
+   ```bash
+   touch add_two_ints_client_no_oop.py
+   ```
+
+3. **Make it Executable**:
+   Set executable permissions:
+   ```bash
+   chmod +x add_two_ints_client_no_oop.py
+   ```
+
+4. **Write the Code**:
+   Open `add_two_ints_client_no_oop.py` in Visual Studio Code:
+   ```bash
+   code add_two_ints_client_no_oop.py
+   ```
+   Add the following code, which creates a client, waits for the service, sends a request, and processes the response:
+
+   ```python
+   #!/usr/bin/env python3
+   import rclpy
+   from rclpy.node import Node
+   from example_interfaces.srv import AddTwoInts
+
+   def main(args=None):
+       rclpy.init(args=args)
+       node = Node("add_two_ints_client_no_oop")
+       
+       client = node.create_client(AddTwoInts, "add_two_ints")
+       while not client.wait_for_service(timeout_sec=1.0):
+           node.get_logger().warn("Waiting for add_two_ints server")
+       
+       request = AddTwoInts.Request()
+       request.a = 3
+       request.b = 8
+       
+       future = client.call_async(request)
+       rclpy.spin_until_future_complete(node, future)
+       
+       response = future.result()
+       node.get_logger().info(f"{request.a} + {request.b} = {response.sum}")
+       
+       rclpy.shutdown()
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+   **Code Explanation**:
+   - **Shebang**: `#!/usr/bin/env python3` ensures Python 3 execution.
+   - **Imports**:
+     - `rclpy`: ROS2 Python client library.
+     - `Node`: For creating a ROS2 node.
+     - `AddTwoInts`: Service interface from `example_interfaces/srv`.
+   - **Main Function**:
+     - Initializes ROS2 with `rclpy.init()`.
+     - Creates a node named `add_two_ints_client_no_oop`.
+     - Creates a client with `node.create_client(AddTwoInts, "add_two_ints")`:
+       - `AddTwoInts`: Service type.
+       - `"add_two_ints"`: Service name (matches the server).
+     - Waits for the service using `client.wait_for_service(timeout_sec=1.0)`:
+       - Loops until the service is available, logging a warning every second if not found.
+     - Creates a request with `AddTwoInts.Request()`:
+       - Sets `request.a = 3` and `request.b = 8`.
+     - Sends the request asynchronously with `client.call_async(request)`:
+       - Returns a `Future` object, which will hold the response when complete.
+     - Spins the node until the response is received with `rclpy.spin_until_future_complete(node, future)`.
+     - Retrieves the response with `future.result()` and logs it (e.g., “3 + 8 = 11”).
+     - Shuts down ROS2 with `rclpy.shutdown()`.
+
+**Screenshot**: `add_two_ints_client_no_oop.py` in VS Code:
+
+![AddTwoIntsClientNoOOP Code](images/add_two_ints_client_no_oop_code.png "add_two_ints_client_no_oop.py in VS Code")
+
+### Step 3: Update setup.py
+
+Configure `add_two_ints_client_no_oop.py` as an executable in `my_py_pkg`’s `setup.py`.
+
+1. **Edit setup.py**:
+   Open `~/ros2_ws/src/my_py_pkg/setup.py` in VS Code:
+   ```bash
+   cd ~/ros2_ws/src/my_py_pkg
+   code setup.py
+   ```
+   Add `add_two_ints_client_no_oop` to the `entry_points` section under `console_scripts`. The updated `setup.py` should include:
+
+   ```python
+   from setuptools import find_packages, setup
+
+   package_name = 'my_py_pkg'
+
+   setup(
+       name=package_name,
+       version='0.0.0',
+       packages=find_packages(exclude=['test']),
+       data_files=[
+           ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+           ('share/' + package_name, ['package.xml']),
+       ],
+       install_requires=['setuptools'],
+       zip_safe=True,
+       maintainer='Your Name',
+       maintainer_email='your.email@example.com',
+       description='ROS2 Python package for learning',
+       license='Apache-2.0',
+       tests_require=['pytest'],
+       entry_points={
+           'console_scripts': [
+               'robot_news_station = my_py_pkg.robot_news_station:main',
+               'smartphone = my_py_pkg.smartphone:main',
+               'add_two_ints_server = my_py_pkg.add_two_ints_server:main',
+               'add_two_ints_client_no_oop = my_py_pkg.add_two_ints_client_no_oop:main',
+           ],
+       },
+   )
+   ```
+
+   **Changes**:
+   - Added `add_two_ints_client_no_oop = my_py_pkg.add_two_ints_client_no_oop:main` to `console_scripts`.
+
+**Screenshot**: Updated `setup.py`:
+
+![SetupPy Updated](images/setup_py_add_two_ints_client_no_oop.png "setup.py with add_two_ints_client_no_oop entry")
+
+### Step 4: Build the Package
+
+Build the `my_py_pkg` package to include the new executable.
+
+1. **Navigate to Workspace**:
+   ```bash
+   cd ~/ros2_ws
+   ```
+
+2. **Build the Package**:
+   Build `my_py_pkg` with `colcon`:
+   ```bash
+   colcon build --packages-select my_py_pkg --symlink-install
+   ```
+   - `--symlink-install`: Allows script edits without rebuilding.
+
+3. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+**Screenshot**: `colcon build` output:
+
+![Colcon Build](images/colcon_build_add_two_ints_client_no_oop.png "colcon build for my_py_pkg")
+
+### Step 5: Run and Test the Service Client
+
+Run the service server and client to test the communication.
+
+1. **Run the Server**:
+   In a terminal, start the `add_two_ints_server` node from [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md):
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg add_two_ints_server
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_server]: Add Two Ints Server has been started
+   ```
+
+2. **Run the Client**:
+   In a new terminal, run the client:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg add_two_ints_client_no_oop
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [add_two_ints_client_no_oop]: 3 + 8 = 11
+   ```
+   In the server terminal, you should see:
+   ```
+   [INFO] [add_two_ints_server]: 3 + 8 = 11
+   ```
+
+3. **Test Without Server**:
+   Stop the server with `Ctrl+C`. Run the client again:
+   ```bash
+   ros2 run my_py_pkg add_two_ints_client_no_oop
+   ```
+   **Expected Output**:
+   ```
+   [WARN] [add_two_ints_client_no_oop]: Waiting for add_two_ints server
+   [WARN] [add_two_ints_client_no_oop]: Waiting for add_two_ints server
+   ...
+   ```
+   The client waits indefinitely, logging warnings. Restart the server in another terminal, and the client should proceed and log the result.
+
+**Screenshot**: Client and server output:
+
+![Client Server Test](images/client_server_test_add_two_ints_no_oop.png "Client and server logs for add_two_ints")
+
+### Step 6: Using the Script as a Template
+
+This non-OOP script is designed as a reusable template for testing any ROS2 service server, especially those with complex request structures that are cumbersome to test with `ros2 service call`. To adapt it for another service:
+
+1. **Change the Interface**:
+   Replace `from example_interfaces.srv import AddTwoInts` with the desired service interface (e.g., `from custom_interfaces.srv import MyService`).
+2. **Update the Service Name**:
+   Change `"add_two_ints"` in `node.create_client(AddTwoInts, "add_two_ints")` to the new service name (e.g., `"my_service"`).
+3. **Modify the Request**:
+   Adjust the request creation to match the new interface’s request fields (e.g., `request.field1 = value` instead of `request.a = 3`).
+4. **Update the Log**:
+   Modify the log message to reflect the new response fields (e.g., `node.get_logger().info(f"Result: {response.result_field}")`).
+5. **Rebuild and Test**:
+   Update `setup.py`, rebuild with `colcon build`, and test with the new server.
+
+This template works for servers written in Python or C++, as ROS2 is language-agnostic.
+
+### Troubleshooting
+
+- **Client Hangs or Warns Indefinitely**:
+  - Ensure the server is running: `ros2 run my_py_pkg add_two_ints_server`.
+  - Verify the service name: `ros2 service list` (should include `/add_two_ints`).
+  - Check the workspace is sourced: `source ~/ros2_ws/install/setup.bash`.
+- **Import Error**:
+  - Confirm `example_interfaces` is in `package.xml`:
+    ```xml
+    <depend>example_interfaces</depend>
+    ```
+  - Rebuild and source the workspace.
+- **Future Never Completes**:
+  - Ensure `client.call_async(request)` uses `call_async`, not `call`, to avoid blocking.
+  - Verify `rclpy.spin_until_future_complete` is called with the correct node and future.
+- **Response Error**:
+  - Check the response fields match the interface (`response.sum` for `AddTwoInts`).
+  - Ensure the server returns a valid response (see [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md)).
+- **Node Not Found**:
+  - Verify `setup.py` includes `add_two_ints_client_no_oop` in `console_scripts`.
+  - Rebuild with `colcon build --packages-select my_py_pkg --symlink-install`.
+
+### Notes
+
+- **Fact-Checking**:
+  - **AddTwoInts Interface**: `a`, `b` (int64) in request, `sum` (int64) in response, per [example_interfaces/AddTwoInts](http://docs.ros.org/en/jazzy/api/example_interfaces/srv/AddTwoInts.html).
+  - **Service Client**: `rclpy.create_client` takes service type and name, per [ROS2 rclpy Services](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Service-And-Client-Python.html#writing-the-client-node).
+  - **Asynchronous Call**: `call_async` returns a `Future`, processed with `spin_until_future_complete`, per [ROS2 Python Client Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Service-And-Client-Python.html#call-the-service-asynchronously).
+  - **Wait for Service**: `wait_for_service(timeout_sec=1.0)` checks server availability, per [ROS2 rclpy API](https://docs.ros.org/en/jazzy/api/rclpy/api/node.html#rclpy.node.Node.create_client).
+  - **Language Agnostic**: Python clients can call C++ servers, per [ROS2 Concepts: Client Libraries](https://docs.ros.org/en/jazzy/Concepts/About-Client-Libraries.html).
+  - **spin_until_future_complete**: Preferred over `spin` for one-time asynchronous calls, per [ROS2 rclpy Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Service-And-Client-Python.html#wait-for-the-response).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2” and “Ros to” to “ROS2”.
+  - Clarified `call_async` over `call` to avoid deadlocks, as synchronous calls require spinning.
+  - Emphasized the script’s role as a template for complex services.
+  - Specified `request.a = 3`, `request.b = 8` (sum = 11) as per the example.
+  - Noted that `wait_for_service` loops indefinitely with a 1-second timeout check.
+
+- **Repository Structure**:
+  - Places the tutorial in `Section 6 - ROS2 Services/`, following [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) and [6.2 - Writing a Python Service Server](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service%20Server.md).
+  - Uses `images/` for four screenshots: `interface_show_add_two_ints.png`, `add_two_ints_client_no_oop_code.png`, `setup_py_add_two_ints_client_no_oop.png`, `colcon_build_add_two_ints_client_no_oop.png`, `client_server_test_add_two_ints_no_oop.png`.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `interface_show_add_two_ints.png`: Output of `ros2 interface show example_interfaces/srv/AddTwoInts` (reuse from 6.2 if unchanged).
+    - `add_two_ints_client_no_oop_code.png`: `add_two_ints_client_no_oop.py` in VS Code.
+    - `setup_py_add_two_ints_client_no_oop.png`: `setup.py` with `add_two_ints_client_no_oop` entry.
+    - `colcon_build_add_two_ints_client_no_oop.png`: `colcon build` output.
+    - `client_server_test_add_two_ints_no_oop.png`: Client and server logs showing “3 + 8 = 11”.
+  - Use tools like GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use `call_async` for service clients to avoid blocking and potential deadlocks.
+  - Implement `wait_for_service` to ensure the server is available before sending requests.
+  - Use `--symlink-install` for Python script development to avoid frequent rebuilds.
+  - Log request and response data for debugging.
+  - Keep the script minimal and reusable as a template for testing various services.
+
+## Next Steps
+
+You’ve created a non-OOP Python service client to call `/add_two_ints`, tested it with the server, and learned its use as a template for testing complex services. Next, you’ll:
+- Integrate a service client into an OOP node (e.g., `6.4 - Writing a Python Service Client (OOP)`).
+- Explore ROS2 service introspection with CLI tools (e.g., `ros2 service list`, `ros2 service info`).
+- Create custom service interfaces, as hinted in the transcript.
+- Apply services to `turtlesim` (e.g., `/turtle1/teleport_absolute`) from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Test the client with a C++ service server to demonstrate language agnosticism.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.
