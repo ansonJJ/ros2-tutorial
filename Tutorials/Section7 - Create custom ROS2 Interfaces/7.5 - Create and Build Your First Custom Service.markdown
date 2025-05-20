@@ -1,0 +1,296 @@
+# 7.5 - Create and Build Your First Custom Service
+
+This tutorial guides you through creating and building your first custom ROS2 service interface, `ComputeRectangleArea.srv`, in the `my_robot_interfaces` package. You’ll learn how to define a service with request and response fields, add it to `CMakeLists.txt`, build the package with `colcon`, and verify it with `ros2 interface show`. This builds on [7.2 - Create and Build Your First Custom Message](Section%207%20-%20ROS2%20Interfaces/7.2%20-%20Create%20and%20Build%20Your%20First%20Custom%20Message.md), leveraging the existing `my_robot_interfaces` package configuration. The tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets **ROS2 Jazzy Jalisco** on **Ubuntu 24.04**.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `rosidl_default_generators` and `rosidl_default_runtime`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_robot_interfaces`, set up in [7.2 - Create and Build Your First Custom Message](Section%207%20-%20ROS2%20Interfaces/7.2%20-%20Create%20and%20Build%20Your%20First%20Custom%20Message.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Interface Knowledge**: Understanding of ROS2 messages and services from [7.1 - What is a ROS2 Interface](Section%207%20-%20ROS2%20Interfaces/7.1%20-%20What%20is%20a%20ROS2%20Interface.md) and [7.2 - Create and Build Your First Custom Message](Section%207%20-%20ROS2%20Interfaces/7.2%20-%20Create%20and%20Build%20Your%20First%20Custom%20Message.md).
+- **CLI Tools**: Familiarity with `ros2 interface show` and `colcon build` from [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md) and [7.2 - Create and Build Your First Custom Message](Section%207%20-%20ROS2%20Interfaces/7.2%20-%20Create%20and%20Build%20Your%20First%20Custom%20Message.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`sudo snap install code --classic`) with the ROS extension.
+  - `rosidl_default_generators` and `rosidl_default_runtime` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rosidl-default-generators ros-jazzy-rosidl-default-runtime`).
+
+## Step-by-Step Instructions
+
+### Step 1: Understand Service Definitions
+
+ROS2 service definitions (`.srv` files) are stored in the `srv/` directory of a package, typically the same `my_robot_interfaces` package used for messages (from 7.2). Services consist of:
+- **Request**: Fields sent by the client to the server.
+- **Response**: Fields returned by the server to the client.
+- **Separator**: Three dashes (`---`) between request and response sections.
+
+The `my_robot_interfaces` package is already configured with necessary dependencies in `package.xml` and `CMakeLists.txt` from 7.2, so no additional setup is required beyond adding the new service.
+
+**Screenshot**: `my_robot_interfaces` directory with `msg/` and `srv/` folders:
+
+![Interface Package Directory](images/my_robot_interfaces_directory.png "my_robot_interfaces with msg/ and srv/ folders")
+
+### Step 2: Create the Service Definition
+
+Define `ComputeRectangleArea.srv` to compute a rectangle’s area based on length and width.
+
+1. **Navigate to Package**:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_interfaces
+   ```
+
+2. **Create `srv/` Directory**:
+   ```bash
+   mkdir -p srv
+   cd srv
+   ```
+
+3. **Create `ComputeRectangleArea.srv`**:
+   ```bash
+   touch ComputeRectangleArea.srv
+   code ComputeRectangleArea.srv
+   ```
+
+4. **Define the Service**:
+   Add:
+   ```srv
+   float64 length
+   float64 width
+   ---
+   float64 area
+   ```
+   - **Request**:
+     - `length`: `float64` for the rectangle’s length.
+     - `width`: `float64` for the rectangle’s width.
+   - **Separator**: `---` (three dashes) separates request and response.
+   - **Response**:
+     - `area`: `float64` for the computed area.
+   - **Syntax Rules**:
+     - One field per line: `<type> <name>`.
+     - Use primitive types (e.g., `float64`) or existing messages/services.
+     - Field names use `snake_case` (lowercase, underscores).
+     - No commas or other separators.
+   - **Naming Convention**:
+     - Service name uses `UpperCamelCase` (e.g., `ComputeRectangleArea`).
+     - Start with a verb (e.g., “Compute”, “Set”, “Enable”) to indicate action.
+     - No dashes, underscores, or spaces in the service name.
+     - Avoid redundant terms like “Service” (e.g., not `ComputeRectangleAreaService`).
+     - Ends with `.srv`.
+
+**Screenshot**: `ComputeRectangleArea.srv` in VS Code:
+
+![Compute Rectangle Area SRV](images/compute_rectangle_area_srv.png "ComputeRectangleArea.srv in editor")
+
+### Step 3: Update `CMakeLists.txt`
+
+Add the service to `CMakeLists.txt` to include it in the build.
+
+1. **Open `CMakeLists.txt`**:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_interfaces
+   code CMakeLists.txt
+   ```
+
+2. **Add Service to `rosidl_generate_interfaces`**:
+   In the `rosidl_generate_interfaces` section, add a new line after `"msg/HardwareStatus.msg"`:
+   ```cmake
+   "srv/ComputeRectangleArea.srv"
+   ```
+   Updated section:
+   ```cmake
+   rosidl_generate_interfaces(${PROJECT_NAME}
+     "msg/HardwareStatus.msg"
+     "srv/ComputeRectangleArea.srv"
+   )
+   ```
+   - Path is relative to the package root (`srv/ComputeRectangleArea.srv`).
+   - No commas between entries; one per line.
+
+3. **Verify `CMakeLists.txt`**:
+   Ensure it resembles:
+   ```cmake
+   cmake_minimum_required(VERSION 3.8)
+   project(my_robot_interfaces)
+
+   if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+     add_compile_options(-Wall -Wextra -Wpedantic)
+   endif()
+
+   find_package(ament_cmake REQUIRED)
+   find_package(rosidl_default_generators REQUIRED)
+
+   rosidl_generate_interfaces(${PROJECT_NAME}
+     "msg/HardwareStatus.msg"
+     "srv/ComputeRectangleArea.srv"
+   )
+
+   ament_export_dependencies(rosidl_default_runtime)
+
+   if(BUILD_TESTING)
+     find_package(ament_lint_auto REQUIRED)
+     set(ament_cmake_copyright_FOUND TRUE)
+     set(ament_cmake_cpplint_FOUND TRUE)
+     ament_lint_auto_find_test_dependencies()
+   endif()
+
+   ament_package()
+   ```
+
+**Screenshot**: Updated `CMakeLists.txt` in VS Code:
+
+![CMakeLists Updated](images/cmakelists_compute_rectangle_area.png "CMakeLists.txt with ComputeRectangleArea.srv")
+
+### Step 4: Build the Interface
+
+Build the package to generate Python and C++ code for the service.
+
+1. **Navigate to Workspace Root**:
+   ```bash
+   cd ~/ros2_ws
+   ```
+
+2. **Build the Package**:
+   Build only `my_robot_interfaces`:
+   ```bash
+   colcon build --packages-select my_robot_interfaces
+   ```
+   - Generates code in `~/ros2_ws/install/my_robot_interfaces/`:
+     - Python: `my_robot_interfaces.srv.ComputeRectangleArea`.
+     - C++: `my_robot_interfaces/srv/compute_rectangle_area.hpp`.
+   - Ignore warnings about “messages in underlying workspaces” if building in the same workspace; these are false positives and safe to disregard.
+
+3. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+**Screenshot**: Terminal output of `colcon build`:
+
+![Colcon Build](images/colcon_build_compute_rectangle_area.png "colcon build output for my_robot_interfaces")
+
+### Step 5: Verify the Service Interface
+
+Confirm the service definition is accessible.
+
+1. **Show the Interface**:
+   ```bash
+   ros2 interface show my_robot_interfaces/srv/ComputeRectangleArea
+   ```
+   Expected output:
+   ```
+   float64 length
+   float64 width
+   ---
+   float64 area
+   ```
+
+2. **List Available Interfaces**:
+   ```bash
+   ros2 interface list | grep my_robot_interfaces
+   ```
+   Expected output includes:
+   ```
+   my_robot_interfaces/msg/HardwareStatus
+   my_robot_interfaces/srv/ComputeRectangleArea
+   ```
+
+**Screenshot**: Terminal output of `ros2 interface show`:
+
+![Interface Show](images/ros2_interface_show_compute_rectangle_area.png "ros2 interface show my_robot_interfaces/srv/ComputeRectangleArea")
+
+### Step 6: Understand Usage (No Code Implementation)
+
+To use `ComputeRectangleArea.srv` in code (covered in future tutorials, e.g., 7.6 or 7.7):
+- **Python**:
+  ```python
+  from my_robot_interfaces.srv import ComputeRectangleArea
+  ```
+  - Import as a service type for clients or servers.
+- **C++**:
+  ```cpp
+  #include <my_robot_interfaces/srv/compute_rectangle_area.hpp>
+  ```
+  - Header uses `snake_case` (`compute_rectangle_area.hpp`) due to `UpperCamelCase` conversion.
+  - Fields: `request.length`, `request.width`, `response.area` (type `double` in C++).
+
+**Note**: This tutorial focuses on creating and building the service. Using it in a client/server node is similar to [6.2 - Writing a Python Service](Section%206%20-%20ROS2%20Services/6.2%20-%20Writing%20a%20Python%20Service.md) or [6.4 - Writing a C++ Service](Section%206%20-%20ROS2%20Services/6.4%20-%20Writing%20a%20C%2B%2B%20Service.md), substituting `example_interfaces` with `my_robot_interfaces`.
+
+### Troubleshooting
+
+- **Service File Syntax Errors**:
+  - Ensure three dashes (`---`) separate request and response.
+  - Use `snake_case` for field names (e.g., `length`, not `Length`).
+  - Use correct primitive types (e.g., `float64`, not `float`).
+  - Avoid punctuation (e.g., no commas or semicolons).
+  - Check [ROS2 Interface Design](https://design.ros2.org/articles/interface_definition.html) for syntax.
+- **Build Errors**:
+  - Verify `CMakeLists.txt` includes `"srv/ComputeRectangleArea.srv"`.
+  - Ensure no commas in `rosidl_generate_interfaces`.
+  - Check `package.xml` has `<buildtool_depend>rosidl_default_generators</buildtool_depend>`, `<exec_depend>rosidl_default_runtime</exec_depend>`, and `<member_of_group>rosidl_interface_packages</member_of_group>` (from 7.2).
+  - Rebuild: `colcon build --packages-select my_robot_interfaces`.
+  - Clean if needed: `rm -rf build install log; colcon build`.
+- **Interface Not Found**:
+  - Source workspace: `source ~/ros2_ws/install/setup.bash`.
+  - Verify package installation: `apt list --installed | grep ros-jazzy-rosidl`.
+  - Check path: `ros2 interface show my_robot_interfaces/srv/ComputeRectangleArea`.
+  - Rebuild if missing: `colcon build --packages-select my_robot_interfaces`.
+- **Colcon Warning**:
+  - Ignore “messages in underlying workspaces” warning if building in `~/ros2_ws`.
+  - Ensure consistent workspace usage to avoid conflicts.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Service Package**: Reuse `my_robot_interfaces` with existing `package.xml` and `CMakeLists.txt` configuration, per [ROS2 Custom Interfaces Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html).
+  - **Service Syntax**: `.srv` files use request, `---`, response structure, per [ROS2 Interface Design](https://design.ros2.org/articles/interface_definition.html).
+  - **Naming Convention**: `UpperCamelCase` for service names, `snake_case` for fields, verb-based names (e.g., “Compute”), per [ROS2 Interface Design](https://design.ros2.org/articles/interface_definition.html).
+  - **Primitive Types**: `float64` supported, maps to Python (`float`) and C++ (`double`), per [ROS2 Interface Definition](https://docs.ros.org/en/jazzy/Concepts/About-Interfaces.html).
+  - **Build Process**: `colcon build` generates Python/C++ code via `rosidl`, per [ROS2 Build System](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html).
+  - **Verification**: `ros2 interface show` confirms service availability, per [ROS2 CLI Tools](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Interfaces.html).
+  - **C++ Header Naming**: `ComputeRectangleArea` becomes `compute_rectangle_area.hpp` with underscores, per [ROS2 Interface Design](https://design.ros2.org/articles/interface_definition.html).
+  - **Colcon Warning**: “Underlying workspaces” warning is a known false positive, safe to ignore, per [ROS2 Colcon Issues](https://github.com/ros2/ros2/issues).
+
+- **Transcript Clarifications**:
+  - Specified `my_robot_interfaces` as the package, consistent with 7.2.
+  - Clarified `srv/` directory creation and `.srv` file syntax (three dashes mandatory).
+  - Corrected “dot serve” to `.srv` and “SV folder” to `srv/`.
+  - Added precise `CMakeLists.txt` snippet and emphasized no commas.
+  - Explained `UpperCamelCase` for service names, `snake_case` for fields, and verb-based naming.
+  - Noted C++ header naming (`compute_rectangle_area.hpp`) with double underscores.
+  - Addressed colcon warning as a false positive, safe to ignore.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 7 - ROS2 Interfaces/`, alongside 7.1–7.4.
+  - Uses `images/` for four screenshots: `my_robot_interfaces_directory.png`, `compute_rectangle_area_srv.png`, `cmakelists_compute_rectangle_area.png`, `colcon_build_compute_rectangle_area.png`, `ros2_interface_show_compute_rectangle_area.png`.
+  - Assumes prior sections (3–6) and 7.1–7.4 exist.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `my_robot_interfaces_directory.png`: File explorer showing `my_robot_interfaces` with `msg/` and `srv/`.
+    - `compute_rectangle_area_srv.png`: `ComputeRectangleArea.srv` in VS Code.
+    - `cmakelists_compute_rectangle_area.png`: `CMakeLists.txt` in VS Code with `srv/ComputeRectangleArea.srv`.
+    - `colcon_build_compute_rectangle_area.png`: Terminal output of `colcon build`.
+    - `ros2_interface_show_compute_rectangle_area.png`: Terminal output of `ros2 interface show`.
+  - Use GNOME Screenshot (`sudo apt install gnome-screenshot`) or Shutter (`sudo apt install shutter`).
+
+- **Best Practices**:
+  - Reuse `my_robot_interfaces` for all custom interfaces to simplify dependency management.
+  - Follow naming conventions: `UpperCamelCase` for service names, `snake_case` for fields, verb-based names.
+  - Always include three dashes (`---`) in `.srv` files, even for empty sections.
+  - Source workspace after every build to ensure interfaces are available.
+  - Verify with `ros2 interface show` before using in code.
+
+## Next Steps
+
+You’ve created and built your first custom ROS2 service, `ComputeRectangleArea.srv`, in `my_robot_interfaces`. Next, you’ll:
+- Use `ComputeRectangleArea.srv` in a Python service server and client (e.g., `7.6 - Writing a Python Service with a Custom Service`).
+- Use `ComputeRectangleArea.srv` in a C++ service server and client (e.g., `7.7 - Writing a C++ Service with a Custom Service`).
+- Combine custom messages and services in `turtlesim` or a final course project (hinted in 6.10).
+- Explore advanced service definitions (e.g., including `std_msgs/msg/Header` in requests).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

@@ -1,0 +1,426 @@
+# 7.4 - Using a Custom Message in a C++ Node
+
+This tutorial demonstrates how to use the custom `HardwareStatus.msg` message, created in [7.2 - Create and Build Your First Custom Message](Section%207%20-%20ROS2%20Interfaces/7.2%20-%20Create%20and%20Build%20Your%20First%20Custom%20Message.md), within a C++ node in the `my_cpp_pkg` package. You’ll create a publisher node (`hardware_status_publisher.cpp`) that publishes `HardwareStatus` messages on the `/hardware_status` topic, import the custom interface from `my_robot_interfaces`, configure `package.xml`, `CMakeLists.txt`, and VS Code’s `c_cpp_properties.json` for proper include paths, build the node, and test it using `ros2 topic echo`. The tutorial builds on [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md), [7.1 - What is a ROS2 Interface](Section%207%20-%20ROS2%20Interfaces/7.1%20-%20What%20is%20a%20ROS2%20Interface.md), and [7.3 - Using a Custom Message in a Python Node](Section%207%20-%20ROS2%20Interfaces/7.3%20-%20Using%20a%20Custom%20Message%20in%20a%20Python%20Node.md), emphasizing the importance of updating include paths and sourcing the workspace. It is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets **ROS2 Jazzy Jalisco** on **Ubuntu 24.04**.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `rclcpp` and `my_robot_interfaces`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_cpp_pkg` and `my_robot_interfaces`, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md), and [7.2 - Create and Build Your First Custom Message](Section%207%20-%20ROS2%20Interfaces/7.2%20-%20Create%20and%20Build%20Your%20First%20Custom%20Message.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Custom Message**: `HardwareStatus.msg` in `my_robot_interfaces`, with fields:
+  ```
+  float64 temperature
+  bool are_motors_ready
+  string debug_message
+  ```
+  Built and verified in 7.2.
+- **Publisher Knowledge**: Familiarity with C++ publishers from [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md).
+- **Interface Knowledge**: Understanding of ROS2 interfaces from [7.1 - What is a ROS2 Interface](Section%207%20-%20ROS2%20Interfaces/7.1%20-%20What%20is%20a%20ROS2%20Interface.md).
+- **CLI Tools**: Familiarity with `ros2 topic echo`, `ros2 run`, and `colcon build` from [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md) and prior sections.
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`sudo snap install code --classic`) with the ROS and C/C++ extensions.
+  - `rclcpp` and `my_robot_interfaces` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rclcpp`).
+
+## Step-by-Step Instructions
+
+### Step 1: Create the Publisher Node
+
+Create a C++ node in `my_cpp_pkg` to publish `HardwareStatus` messages.
+
+1. **Navigate to Source Directory**:
+   ```bash
+   cd ~/ros2_ws/src/my_cpp_pkg/src
+   ```
+
+2. **Create the Node File**:
+   ```bash
+   touch hardware_status_publisher.cpp
+   ```
+
+3. **Write the Node Code**:
+   Open `hardware_status_publisher.cpp` in VS Code:
+   ```bash
+   code hardware_status_publisher.cpp
+   ```
+   Add the following:
+   ```cpp
+   #include <rclcpp/rclcpp.hpp>
+   #include <my_robot_interfaces/msg/hardware_status.hpp>
+
+   class HardwareStatusPublisher : public rclcpp::Node
+   {
+   public:
+       HardwareStatusPublisher() : Node("hardware_status_publisher")
+       {
+           publisher_ = create_publisher<my_robot_interfaces::msg::HardwareStatus>("hardware_status", 10);
+           timer_ = create_timer(
+               this, get_clock(), rclcpp::Duration::from_seconds(1.0),
+               std::bind(&HardwareStatusPublisher::publish_hardware_status, this));
+           RCLCPP_INFO(get_logger(), "Hardware Status Publisher has been started");
+       }
+
+   private:
+       void publish_hardware_status()
+       {
+           auto msg = my_robot_interfaces::msg::HardwareStatus();
+           msg.temperature = 43.7;
+           msg.are_motors_ready = true;
+           msg.debug_message = "Nothing special";
+           publisher_->publish(msg);
+       }
+
+       rclcpp::Publisher<my_robot_interfaces::msg::HardwareStatus>::SharedPtr publisher_;
+       rclcpp::TimerBase::SharedPtr timer_;
+   };
+
+   int main(int argc, char **argv)
+   {
+       rclcpp::init(argc, argv);
+       auto node = std::make_shared<HardwareStatusPublisher>();
+       rclcpp::spin(node);
+       rclcpp::shutdown();
+       return 0;
+   }
+   ```
+   - **Includes**:
+     - `<rclcpp/rclcpp.hpp>`: ROS2 C++ client library.
+     - `<my_robot_interfaces/msg/hardware_status.hpp>`: Custom message header.
+   - **Node**:
+     - Name: `hardware_status_publisher`.
+     - Publisher: Publishes `HardwareStatus` messages on `/hardware_status` with queue size 10.
+     - Timer: Calls `publish_hardware_status` every 1 second.
+   - **Callback**:
+     - Creates a `HardwareStatus` message.
+     - Sets fields: `temperature` (43.7), `are_motors_ready` (true), `debug_message` ("Nothing special").
+     - Publishes the message.
+   - **Main**: Initializes ROS2, spins the node, and shuts down.
+   - **Naming**: Header uses `hardware_status.hpp` (lowercase, underscore) due to `UpperCamelCase` (`HardwareStatus`) conversion in C++.
+
+**Screenshot**: `hardware_status_publisher.cpp` in VS Code:
+
+![Hardware Status Publisher Code](images/hardware_status_publisher_cpp_code.png "hardware_status_publisher.cpp in VS Code")
+
+### Step 2: Configure VS Code Include Paths
+
+If VS Code doesn’t recognize `<my_robot_interfaces/msg/hardware_status.hpp>` (e.g., no autocompletion, red squiggles), update the include paths in `.vscode/c_cpp_properties.json`.
+
+1. **Locate the Include Path**:
+   The `HardwareStatus` header is in `~/ros2_ws/install/my_robot_interfaces/include/my_robot_interfaces/`.
+   ```bash
+   cd ~/ros2_ws/install/my_robot_interfaces/include/my_robot_interfaces
+   pwd
+   ```
+   Example output:
+   ```
+   /home/user/ros2_ws/install/my_robot_interfaces/include/my_robot_interfaces
+   ```
+
+2. **Open VS Code**:
+   Ensure VS Code is opened from a sourced terminal:
+   ```bash
+   terminator
+   source /opt/ros/jazzy/setup.bash
+   source ~/ros2_ws/install/setup.bash
+   cd ~/ros2_ws
+   code .
+   ```
+
+3. **Update `c_cpp_properties.json`**:
+   If `.vscode/c_cpp_properties.json` doesn’t exist, create it:
+   ```bash
+   mkdir -p .vscode
+   touch .vscode/c_cpp_properties.json
+   code .vscode/c_cpp_properties.json
+   ```
+   Add or update:
+   ```json
+   {
+       "configurations": [
+           {
+               "name": "Linux",
+               "includePath": [
+                   "${workspaceFolder}/**",
+                   "/opt/ros/jazzy/include/**",
+                   "/home/user/ros2_ws/install/my_robot_interfaces/include/**"
+               ],
+               "defines": [],
+               "compilerPath": "/usr/bin/g++",
+               "cStandard": "c17",
+               "cppStandard": "c++17",
+               "intelliSenseMode": "gcc-x64"
+           }
+       ],
+       "version": 4
+   }
+   ```
+   - Replace `/home/user` with your actual home directory (from `pwd`).
+   - `includePath`: Adds `my_robot_interfaces` headers.
+   - `/**`: Includes all subdirectories recursively.
+   - Save and wait for VS Code to update (autocompletion should work for `my_robot_interfaces::msg::HardwareStatus`).
+
+4. **Why This Happens**:
+   - VS Code’s C/C++ extension needs explicit include paths for custom packages.
+   - Headers for `my_robot_interfaces` are in `install/`, not `/opt/ros/jazzy`.
+   - Update required only once per workspace for `my_robot_interfaces`.
+   - Always open VS Code from the workspace root (`~/ros2_ws`) to use this configuration.
+
+**Screenshot**: `c_cpp_properties.json` in VS Code:
+
+![C CPP Properties](images/c_cpp_properties_json.png "c_cpp_properties.json with my_robot_interfaces include path")
+
+### Step 3: Update `package.xml`
+
+Add `my_robot_interfaces` as a dependency to `my_cpp_pkg`.
+
+1. **Open `package.xml`**:
+   ```bash
+   cd ~/ros2_ws/src/my_cpp_pkg
+   code package.xml
+   ```
+
+2. **Add Dependency**:
+   After existing `<depend>` tags (e.g., `<depend>rclcpp</depend>`), add:
+   ```xml
+   <depend>my_robot_interfaces</depend>
+   ```
+   Example `package.xml` snippet:
+   ```xml
+   <depend>rclcpp</depend>
+   <depend>std_msgs</depend>
+   <depend>example_interfaces</depend>
+   <depend>my_robot_interfaces</depend>
+   ```
+
+3. **Save**:
+   Ensures `my_robot_interfaces` headers are available.
+
+**Screenshot**: Updated `package.xml` in VS Code:
+
+![Package XML Updated](images/package_xml_my_cpp_pkg.png "package.xml with my_robot_interfaces dependency")
+
+### Step 4: Update `CMakeLists.txt`
+
+Configure `CMakeLists.txt` to build the node and link `my_robot_interfaces`.
+
+1. **Open `CMakeLists.txt`**:
+   ```bash
+   code CMakeLists.txt
+   ```
+
+2. **Add Dependency**:
+   After `find_package(rclcpp REQUIRED)`, add:
+   ```cmake
+   find_package(my_robot_interfaces REQUIRED)
+   ```
+
+3. **Add Executable**:
+   After existing `add_executable` entries, add:
+   ```cmake
+   add_executable(hw_status_publisher src/hardware_status_publisher.cpp)
+   ament_target_dependencies(hw_status_publisher rclcpp my_robot_interfaces)
+   ```
+
+4. **Install Executable**:
+   In the `install(TARGETS)` section, add `hw_status_publisher`:
+   ```cmake
+   install(TARGETS
+     hw_status_publisher
+     DESTINATION lib/${PROJECT_NAME}
+   )
+   ```
+
+5. **Verify `CMakeLists.txt`**:
+   Example snippet:
+   ```cmake
+   cmake_minimum_required(VERSION 3.8)
+   project(my_cpp_pkg)
+
+   if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+     add_compile_options(-Wall -Wextra -Wpedantic)
+   endif()
+
+   find_package(ament_cmake REQUIRED)
+   find_package(rclcpp REQUIRED)
+   find_package(std_msgs REQUIRED)
+   find_package(example_interfaces REQUIRED)
+   find_package(my_robot_interfaces REQUIRED)
+
+   add_executable(hw_status_publisher src/hardware_status_publisher.cpp)
+   ament_target_dependencies(hw_status_publisher rclcpp my_robot_interfaces)
+
+   install(TARGETS
+     hw_status_publisher
+     DESTINATION lib/${PROJECT_NAME}
+   )
+
+   if(BUILD_TESTING)
+     find_package(ament_lint_auto REQUIRED)
+     set(ament_cmake_copyright_FOUND TRUE)
+     set(ament_cmake_cpplint_FOUND TRUE)
+     ament_lint_auto_find_test_dependencies()
+   endif()
+
+   ament_package()
+   ```
+
+**Screenshot**: Updated `CMakeLists.txt` in VS Code:
+
+![CMakeLists Updated](images/cmakelists_my_cpp_pkg.png "CMakeLists.txt with hw_status_publisher")
+
+### Step 5: Build the Package
+
+Build `my_cpp_pkg` to compile the node.
+
+1. **Navigate to Workspace Root**:
+   ```bash
+   cd ~/ros2_ws
+   ```
+
+2. **Build**:
+   Build only `my_cpp_pkg`:
+   ```bash
+   colcon build --packages-select my_cpp_pkg
+   ```
+
+3. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+**Screenshot**: Terminal output of `colcon build`:
+
+![Colcon Build](images/colcon_build_my_cpp_pkg.png "colcon build output for my_cpp_pkg")
+
+### Step 6: Test the Node
+
+Run the node and verify published messages.
+
+1. **Run the Node**:
+   Open a sourced terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_cpp_pkg hw_status_publisher
+   ```
+   Expected output:
+   ```
+   [INFO] [hardware_status_publisher]: Hardware Status Publisher has been started
+   ```
+
+2. **List Topics**:
+   In another sourced terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 topic list
+   ```
+   Expected output includes:
+   ```
+   /hardware_status
+   /parameter_events
+   /rosout
+   ```
+
+3. **Echo Messages**:
+   ```bash
+   ros2 topic echo /hardware_status
+   ```
+   Expected output (every ~1 second):
+   ```
+   temperature: 43.7
+   are_motors_ready: true
+   debug_message: Nothing special
+   ---
+   ```
+
+**Screenshot**: Terminal output of `ros2 topic echo /hardware_status`:
+
+![Topic Echo](images/ros2_topic_echo_hardware_status_cpp.png "ros2 topic echo /hardware_status output")
+
+### Troubleshooting
+
+- **VS Code Doesn’t Recognize `hardware_status.hpp`**:
+  - Verify `.vscode/c_cpp_properties.json` includes `"/home/user/ros2_ws/install/my_robot_interfaces/include/**"`.
+  - Reopen VS Code in a sourced terminal: `source ~/ros2_ws/install/setup.bash; cd ~/ros2_ws; code .`.
+  - Ensure `my_robot_interfaces` is built: `colcon build --packages-select my_robot_interfaces`.
+- **Build Errors**:
+  - Check `package.xml` for `<depend>my_robot_interfaces</depend>`.
+  - Verify `CMakeLists.txt` includes `find_package(my_robot_interfaces REQUIRED)` and `ament_target_dependencies`.
+  - Ensure `hardware_status_publisher.cpp` has correct include path: `<my_robot_interfaces/msg/hardware_status.hpp>`.
+  - Rebuild: `colcon build --packages-select my_cpp_pkg`.
+  - Clean if needed: `rm -rf build install log; colcon build`.
+- **Node Fails to Run**:
+  - Source workspace: `source ~/ros2_ws/install/setup.bash`.
+  - Check executable: `ros2 run my_cpp_pkg hw_status_publisher`.
+  - Verify `my_robot_interfaces` is built: `ros2 interface show my_robot_interfaces/msg/HardwareStatus`.
+- **`ros2 topic echo` Shows Invalid Type**:
+  - Source the terminal: `source ~/ros2_ws/install/setup.bash`.
+  - Rebuild `my_robot_interfaces`: `colcon build --packages-select my_robot_interfaces`.
+  - Restart terminals and source again.
+- **No Messages Published**:
+  - Ensure node is running: `ros2 node list` should show `/hardware_status_publisher`.
+  - Check topic: `ros2 topic info /hardware_status` should show type `my_robot_interfaces/msg/HardwareStatus`.
+  - Verify code sets fields correctly (e.g., `msg.temperature = 43.7`).
+
+### Notes
+
+- **Fact-Checking**:
+  - **Custom Message Usage**: Include `<my_robot_interfaces/msg/hardware_status.hpp>` in C++, add `<depend>my_robot_interfaces</depend>` to `package.xml`, and `find_package(my_robot_interfaces REQUIRED)` to `CMakeLists.txt`, per [ROS2 Custom Interfaces Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html).
+  - **Publisher Node**: Uses `rclcpp::Publisher` with `my_robot_interfaces::msg::HardwareStatus`, follows standard pattern, per [ROS2 C++ Publisher Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html).
+  - **Include Paths**: VS Code requires `c_cpp_properties.json` to include custom package headers, per [ROS2 VS Code Setup](https://github.com/ros/ros_vscode/wiki).
+  - **Dependency Management**: `package.xml` and `CMakeLists.txt` require dependencies for imported packages, per [ROS2 Package Format](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html#editing-package-xml).
+  - **Header Naming**: `UpperCamelCase` (`HardwareStatus`) becomes `hardware_status.hpp` with underscores in C++, per [ROS2 Interface Design](https://design.ros2.org/articles/interface_definition.html).
+  - **Environment Sourcing**: Sourcing workspace after building is critical, per [ROS2 Workspace Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html).
+  - **Topic Verification**: `ros2 topic list` and `ros2 topic echo` confirm publishing, per [ROS2 CLI Tools](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **Message Fields**: `HardwareStatus.msg` fields (`float64 temperature`, `bool are_motors_ready`, `string debug_message`) map to C++ types (`double`, `bool`, `std::string`), per [ROS2 Interface Design](https://design.ros2.org/articles/interface_definition.html).
+
+- **Transcript Translation and Clarifications**:
+  - **Translation**: Translated from German to English, preserving technical intent (e.g., “benutzerdefinierte Schnittstelle” to “custom interface”, “Hardwarestatus publisher” to “hardware status publisher”).
+  - **Clarifications**:
+    - Specified `my_cpp_pkg` as the package, consistent with 3.3.
+    - Corrected “dot cp” to `.cpp` and “HTTP” to `.hpp`.
+    - Added precise `c_cpp_properties.json`, `package.xml`, and `CMakeLists.txt` snippets.
+    - Explained `UpperCamelCase` to `snake_case` conversion for C++ headers (e.g., `HardwareStatus` to `hardware_status.hpp`).
+    - Emphasized sourcing and VS Code configuration for include paths.
+    - Provided full C++ code, mirroring Python node from 7.3 for consistency.
+    - Clarified executable name (`hw_status_publisher`) and its `CMakeLists.txt` entry.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 7 - ROS2 Interfaces/`, alongside 7.1–7.3.
+  - Uses `images/` for six screenshots: `hardware_status_publisher_cpp_code.png`, `c_cpp_properties_json.png`, `package_xml_my_cpp_pkg.png`, `cmakelists_my_cpp_pkg.png`, `colcon_build_my_cpp_pkg.png`, `ros2_topic_echo_hardware_status_cpp.png`.
+  - Assumes prior sections (3–6) and 7.1–7.3 exist.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `hardware_status_publisher_cpp_code.png`: `hardware_status_publisher.cpp` in VS Code.
+    - `c_cpp_properties_json.png`: `c_cpp_properties.json` in VS Code with `my_robot_interfaces` include path.
+    - `package_xml_my_cpp_pkg.png`: `package.xml` in VS Code with `my_robot_interfaces` dependency.
+    - `cmakelists_my_cpp_pkg.png`: `CMakeLists.txt` in VS Code with `hw_status_publisher`.
+    - `colcon_build_my_cpp_pkg.png`: Terminal output of `colcon build`.
+    - `ros2_topic_echo_hardware_status_cpp.png`: Terminal output of `ros2 topic echo /hardware_status`.
+  - Use GNOME Screenshot (`sudo apt install gnome-screenshot`) or Shutter (`sudo apt install shutter`).
+
+- **Best Practices**:
+  - Update `c_cpp_properties.json` once per workspace for custom interfaces.
+  - Always source the workspace after building interfaces or nodes.
+  - Use `snake_case` for node names, topic names, and executable entries.
+  - Add dependencies explicitly in `package.xml` and `CMakeLists.txt`.
+  - Verify publishing with `ros2 topic echo` in a sourced terminal.
+
+## Next Steps
+
+You’ve used the custom `HardwareStatus.msg` in a C++ publisher node. Next, you’ll:
+- Create a C++ subscriber node to listen to `/hardware_status` (e.g., `7.5 - Writing a C++ Subscriber for a Custom Message`).
+- Create a custom service definition (e.g., `7.6 - Creating a Custom ROS2 Service`) in `my_robot_interfaces`.
+- Combine Python and C++ nodes using `HardwareStatus.msg` for interoperability.
+- Integrate custom messages into `turtlesim` or a final course project (hinted in 6.10).
+- Explore advanced message fields (e.g., including `std_msgs/msg/Header` in `HardwareStatus.msg`).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

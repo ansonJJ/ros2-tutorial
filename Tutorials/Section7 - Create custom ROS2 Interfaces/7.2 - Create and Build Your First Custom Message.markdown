@@ -1,0 +1,377 @@
+# 7.2 - Create and Build Your First Custom Message
+
+This tutorial guides you through creating and building your first custom ROS2 message interface, `HardwareStatus.msg`, in a dedicated interface package, `my_robot_interfaces`. You’ll learn where to write message definitions, how to set up an interface package, configure `package.xml` and `CMakeLists.txt`, define a message using primitive types, build it with `colcon`, and verify it with `ros2 interface show`. This builds on [7.1 - What is a ROS2 Interface](Section%207%20-%20ROS2%20Interfaces/7.1%20-%20What%20is%20a%20ROS2%20Interface.md), preparing you to use custom messages in topics or services. The tutorial is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets **ROS2 Jazzy Jalisco** on **Ubuntu 24.04**.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `rosidl_default_generators` and `rosidl_default_runtime`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_py_pkg` and `my_cpp_pkg`, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Interface Knowledge**: Understanding of ROS2 message and service definitions from [7.1 - What is a ROS2 Interface](Section%207%20-%20ROS2%20Interfaces/7.1%20-%20What%20is%20a%20ROS2%20Interface.md).
+- **CLI Tools**: Familiarity with `ros2 pkg create`, `ros2 interface show`, and `colcon build` from [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [6.8 - Introspecting ROS2 Services with Command Line Tools](Section%206%20-%20ROS2%20Services/6.8%20-%20Introspecting%20ROS2%20Services%20with%20Command%20Line%20Tools.md), and prior sections.
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - A code editor (e.g., Visual Studio Code: `sudo snap install code --classic`).
+  - Internet access to reference ROS2 documentation or tutorials (e.g., [Robotics Backend](https://roboticsbackend.com/)).
+  - `rosidl_default_generators` and `rosidl_default_runtime` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rosidl-default-generators ros-jazzy-rosidl-default-runtime`).
+
+## Step-by-Step Instructions
+
+### Step 1: Understand Where to Write Message Definitions
+
+ROS2 message definitions (`.msg` files) are written in a package’s `msg/` directory. While you could add messages to any package (e.g., `my_py_pkg` or `my_cpp_pkg`), it’s best to create a dedicated interface package to avoid dependency conflicts and simplify imports.
+
+- **Why a Dedicated Package?**
+  - Centralizes all custom interfaces (messages and services).
+  - Prevents dependency issues when importing interfaces into other packages (e.g., `my_py_pkg` adds a dependency to the interface package).
+  - Needs to be set up only once; new interfaces are added to the same package.
+- **Package Name Convention**:
+  - Use `<application_name>_interfaces` (e.g., `my_robot_interfaces` for a generic robot application, or `abc_interfaces` for a robot named ABC).
+  - Suffix `_interfaces` clarifies the package’s purpose.
+
+**Screenshot**: ROS2 workspace with existing packages and new interface package:
+
+![ROS2 Workspace](images/ros2_workspace_with_interfaces.png "ROS2 workspace with my_robot_interfaces")
+
+### Step 2: Create the Interface Package
+
+Create a new package, `my_robot_interfaces`, for custom interfaces.
+
+1. **Navigate to Workspace Source**:
+   ```bash
+   cd ~/ros2_ws/src
+   ```
+   This directory contains `my_py_pkg` and `my_cpp_pkg` from Sections 3.2 and 3.3.
+
+2. **Create the Package**:
+   ```bash
+   ros2 pkg create my_robot_interfaces
+   ```
+   - Uses default `ament_cmake` build type (no need to specify `--build-type ament_cmake`).
+   - No dependencies are needed at creation; they’ll be added later.
+   - Output shows created files (`package.xml`, `CMakeLists.txt`, `include/`, `src/`).
+
+3. **Clean Up Unnecessary Directories**:
+   The package is created as a C++ package, but interfaces don’t need `include/` or `src/`.
+   ```bash
+   cd my_robot_interfaces
+   rm -r include src
+   ```
+   Remaining files: `package.xml`, `CMakeLists.txt`.
+
+**Screenshot**: Terminal output of `ros2 pkg create`:
+
+![Package Creation](images/ros2_pkg_create_output.png "ros2 pkg create my_robot_interfaces output")
+
+### Step 3: Configure `package.xml`
+
+Add dependencies to `package.xml` to support interface generation.
+
+1. **Open `package.xml`**:
+   ```bash
+   code package.xml
+   ```
+   Or use any editor (e.g., `nano package.xml`).
+
+2. **Add Dependencies**:
+   After `<buildtool_depend>ament_cmake</buildtool_depend>`, add:
+   ```xml
+   <buildtool_depend>rosidl_default_generators</buildtool_depend>
+   <exec_depend>rosidl_default_runtime</exec_depend>
+   <member_of_group>rosidl_interface_packages</member_of_group>
+   ```
+   - `rosidl_default_generators`: Builds `.msg` and `.srv` files into Python/C++ code.
+   - `rosidl_default_runtime`: Provides runtime support for generated interfaces.
+   - `rosidl_interface_packages`: Marks the package as an interface package.
+   - Source: [ROS2 Custom Interfaces Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html) or [Robotics Backend](https://roboticsbackend.com/ros2-create-custom-message/).
+
+3. **Verify `package.xml`**:
+   Ensure it resembles:
+   ```xml
+   <?xml version="1.0"?>
+   <package format="3">
+     <name>my_robot_interfaces</name>
+     <version>0.0.0</version>
+     <description>Custom ROS2 interfaces for my robot</description>
+     <maintainer email="user@todo.todo">user</maintainer>
+     <license>TODO</license>
+     <buildtool_depend>ament_cmake</buildtool_depend>
+     <buildtool_depend>rosidl_default_generators</buildtool_depend>
+     <exec_depend>rosidl_default_runtime</exec_depend>
+     <member_of_group>rosidl_interface_packages</member_of_group>
+     <test_depend>ament_lint_auto</test_depend>
+     <test_depend>ament_lint_common</test_depend>
+     <export>
+       <build_type>ament_cmake</build_type>
+     </export>
+   </package>
+   ```
+   Update `<license>` to `Apache-2.0` (ROS2 default) or `MIT` if preferred.
+
+**Screenshot**: Edited `package.xml` in VS Code:
+
+![Package XML](images/package_xml_edited.png "package.xml with interface dependencies")
+
+### Step 4: Configure `CMakeLists.txt`
+
+Modify `CMakeLists.txt` to build interfaces.
+
+1. **Open `CMakeLists.txt`**:
+   ```bash
+   code CMakeLists.txt
+   ```
+
+2. **Clean Up**:
+   Remove unnecessary sections (e.g., `add_executable`, `install(TARGETS)`, C++-specific rules). Keep:
+   ```cmake
+   cmake_minimum_required(VERSION 3.8)
+   project(my_robot_interfaces)
+
+   if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+     add_compile_options(-Wall -Wextra -Wpedantic)
+   endif()
+
+   find_package(ament_cmake REQUIRED)
+
+   if(BUILD_TESTING)
+     find_package(ament_lint_auto REQUIRED)
+     set(ament_cmake_copyright_FOUND TRUE)
+     set(ament_cmake_cpplint_FOUND TRUE)
+     ament_lint_auto_find_test_dependencies()
+   endif()
+
+   ament_package()
+   ```
+
+3. **Add Interface Rules**:
+   After `find_package(ament_cmake REQUIRED)`, add:
+   ```cmake
+   find_package(rosidl_default_generators REQUIRED)
+
+   rosidl_generate_interfaces(${PROJECT_NAME}
+     "msg/HardwareStatus.msg"
+   )
+
+   ament_export_dependencies(rosidl_default_runtime)
+   ```
+   - `find_package(rosidl_default_generators REQUIRED)`: Enables interface generation.
+   - `rosidl_generate_interfaces`: Specifies interfaces to build (e.g., `msg/HardwareStatus.msg`).
+   - `ament_export_dependencies(rosidl_default_runtime)`: Exports runtime dependencies.
+   - Source: [ROS2 Custom Interfaces Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html).
+
+4. **Verify `CMakeLists.txt`**:
+   Ensure it resembles:
+   ```cmake
+   cmake_minimum_required(VERSION 3.8)
+   project(my_robot_interfaces)
+
+   if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+     add_compile_options(-Wall -Wextra -Wpedantic)
+   endif()
+
+   find_package(ament_cmake REQUIRED)
+   find_package(rosidl_default_generators REQUIRED)
+
+   rosidl_generate_interfaces(${PROJECT_NAME}
+     "msg/HardwareStatus.msg"
+   )
+
+   ament_export_dependencies(rosidl_default_runtime)
+
+   if(BUILD_TESTING)
+     find_package(ament_lint_auto REQUIRED)
+     set(ament_cmake_copyright_FOUND TRUE)
+     set(ament_cmake_cpplint_FOUND TRUE)
+     ament_lint_auto_find_test_dependencies()
+   endif()
+
+   ament_package()
+   ```
+
+**Screenshot**: Edited `CMakeLists.txt` in VS Code:
+
+![CMakeLists](images/cmakelists_edited.png "CMakeLists.txt with interface rules")
+
+### Step 5: Create the Message Definition
+
+Define `HardwareStatus.msg` using primitive types.
+
+1. **Create `msg/` Directory**:
+   ```bash
+   mkdir -p msg
+   cd msg
+   ```
+
+2. **Create `HardwareStatus.msg`**:
+   ```bash
+   touch HardwareStatus.msg
+   code HardwareStatus.msg
+   ```
+
+3. **Define the Message**:
+   Add:
+   ```msg
+   float64 temperature
+   bool are_motors_ready
+   string debug_message
+   ```
+   - **Fields**:
+     - `temperature`: `float64` for robot temperature (e.g., in Celsius).
+     - `are_motors_ready`: `bool` for motor status (true/false).
+     - `debug_message`: `string` for diagnostic messages.
+   - **Syntax Rules**:
+     - One field per line: `<type> <name>`.
+     - Use primitive types (e.g., `float64`, `bool`, `string`) or existing messages (not used here for simplicity).
+     - Field names use `snake_case` (lowercase, underscores).
+     - No commas or other separators.
+   - **Naming Convention**:
+     - Message name uses `UpperCamelCase` (e.g., `HardwareStatus`).
+     - No dashes or underscores in message name.
+     - Avoid redundant terms like “Message” (e.g., not `HardwareStatusMessage`).
+     - Ends with `.msg`.
+
+**Screenshot**: `HardwareStatus.msg` in VS Code:
+
+![HardwareStatus Message](images/hardware_status_msg.png "HardwareStatus.msg in editor")
+
+### Step 6: Build the Interface
+
+Build the package to generate Python and C++ code for the message.
+
+1. **Navigate to Workspace Root**:
+   ```bash
+   cd ~/ros2_ws
+   ```
+
+2. **Build the Package**:
+   Build only `my_robot_interfaces` to save time:
+   ```bash
+   colcon build --packages-select my_robot_interfaces
+   ```
+   - First build may take longer (e.g., 10–20 seconds) due to interface generation.
+   - Generates code in `~/ros2_ws/install/my_robot_interfaces/`:
+     - Python: `my_robot_interfaces.msg.HardwareStatus`.
+     - C++: `my_robot_interfaces/msg/hardware_status.hpp`.
+
+3. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+   Ensures the new interface is available.
+
+**Screenshot**: Terminal output of `colcon build`:
+
+![Colcon Build](images/colcon_build_output.png "colcon build output for my_robot_interfaces")
+
+### Step 7: Verify the Interface
+
+Confirm the message definition is accessible.
+
+1. **Show the Interface**:
+   ```bash
+   ros2 interface show my_robot_interfaces/msg/HardwareStatus
+   ```
+   Expected output:
+   ```
+   float64 temperature
+   bool are_motors_ready
+   string debug_message
+   ```
+
+2. **Check Available Interfaces**:
+   List all interfaces in `my_robot_interfaces`:
+   ```bash
+   ros2 interface list | grep my_robot_interfaces
+   ```
+   Expected output includes:
+   ```
+   my_robot_interfaces/msg/HardwareStatus
+   ```
+
+**Screenshot**: Terminal output of `ros2 interface show`:
+
+![Interface Show](images/ros2_interface_show_output.png "ros2 interface show my_robot_interfaces/msg/HardwareStatus")
+
+### Troubleshooting
+
+- **Package Creation Fails**:
+  - Ensure you’re in `~/ros2_ws/src`: `cd ~/ros2_ws/src`.
+  - Check `ros2 pkg create` syntax: `ros2 pkg create my_robot_interfaces`.
+  - Verify ROS2 is sourced: `source /opt/ros/jazzy/setup.bash`.
+- **Build Errors**:
+  - Check `package.xml` for missing dependencies (`rosidl_default_generators`, `rosidl_default_runtime`).
+  - Verify `CMakeLists.txt` includes `rosidl_generate_interfaces` with correct path (`msg/HardwareStatus.msg`).
+  - Ensure no syntax errors in `HardwareStatus.msg` (e.g., correct primitive types, no commas).
+  - Run `colcon build --packages-select my_robot_interfaces` again.
+  - Clean workspace if needed: `rm -rf build install log; colcon build`.
+- **Interface Not Found**:
+  - Source workspace: `source ~/ros2_ws/install/setup.bash`.
+  - Check package installation: `apt list --installed | grep ros-jazzy-rosidl`.
+  - Verify interface path: `ros2 interface show my_robot_interfaces/msg/HardwareStatus`.
+  - If missing, rebuild: `colcon build --packages-select my_robot_interfaces`.
+- **Syntax Errors in `HardwareStatus.msg`**:
+  - Use `snake_case` for field names (e.g., `are_motors_ready`, not `areMotorsReady`).
+  - Use correct primitive types (e.g., `float64`, not `float`).
+  - Avoid punctuation (e.g., no commas or semicolons).
+  - Check [ROS2 Interface Design](https://design.ros2.org/articles/interface_definition.html) for syntax.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Interface Package**: Dedicated package (`my_robot_interfaces`) recommended to avoid dependency issues, per [ROS2 Custom Interfaces Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html).
+  - **Package Creation**: `ros2 pkg create` with default `ament_cmake`, per [ROS2 Package Creation](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html).
+  - **Dependencies**: `rosidl_default_generators`, `rosidl_default_runtime`, `rosidl_interface_packages` required, per [ROS2 Interface Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html).
+  - **Message Syntax**: `UpperCamelCase` for message names, `snake_case` for fields, no punctuation, per [ROS2 Interface Design](https://design.ros2.org/articles/interface_definition.html).
+  - **Primitive Types**: `float64`, `bool`, `string` supported, per [ROS2 Interface Definition](https://docs.ros.org/en/jazzy/Concepts/About-Interfaces.html).
+  - **Build Process**: `colcon build` generates Python/C++ code via `rosidl`, per [ROS2 Build System](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html).
+  - **Verification**: `ros2 interface show` confirms interface availability, per [ROS2 CLI Tools](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Interfaces.html).
+  - **Robotics Backend**: Reliable source for interface setup, cross-referenced with [ROS2 Official Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html).
+
+- **Transcript Clarifications**:
+  - Specified `my_robot_interfaces` as a generic name; users can replace with `<application_name>_interfaces`.
+  - Clarified `ament_cmake` as default build type, no need for `--build-type`.
+  - Emphasized removing `include/` and `src/` for interface-only packages.
+  - Corrected “cmakelists.txt” to `CMakeLists.txt` and “package dot XML” to `package.xml`.
+  - Added precise `package.xml` and `CMakeLists.txt` snippets from ROS2 documentation.
+  - Clarified `UpperCamelCase` for message names, `snake_case` for fields, and no redundant “Message” in names.
+  - Specified `HardwareStatus.msg` fields (`temperature`, `are_motors_ready`, `debug_message`) for clarity.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 7 - ROS2 Interfaces/`, alongside 7.1.
+  - Uses `images/` for five screenshots: `ros2_workspace_with_interfaces.png`, `ros2_pkg_create_output.png`, `package_xml_edited.png`, `cmakelists_edited.png`, `hardware_status_msg.png`, `colcon_build_output.png`, `ros2_interface_show_output.png`.
+  - Assumes prior sections (3–6) and 7.1 exist.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `ros2_workspace_with_interfaces.png`: File explorer showing `~/ros2_ws/src` with `my_robot_interfaces`.
+    - `ros2_pkg_create_output.png`: Terminal output of `ros2 pkg create my_robot_interfaces`.
+    - `package_xml_edited.png`: `package.xml` in VS Code with added dependencies.
+    - `cmakelists_edited.png`: `CMakeLists.txt` in VS Code with interface rules.
+    - `hardware_status_msg.png`: `HardwareStatus.msg` in VS Code.
+    - `colcon_build_output.png`: Terminal output of `colcon build`.
+    - `ros2_interface_show_output.png`: Terminal output of `ros2 interface show`.
+  - Use GNOME Screenshot (`sudo apt install gnome-screenshot`) or Shutter (`sudo apt install shutter`).
+
+- **Best Practices**:
+  - Use a dedicated interface package to simplify dependency management.
+  - Follow naming conventions (`UpperCamelCase` for messages, `snake_case` for fields).
+  - Source workspace after every build to ensure interfaces are available.
+  - Verify with `ros2 interface show` before using in code.
+  - Keep `package.xml` and `CMakeLists.txt` minimal for interface packages.
+
+## Next Steps
+
+You’ve created and built your first custom ROS2 message, `HardwareStatus.msg`, in `my_robot_interfaces`. Next, you’ll:
+- Use `HardwareStatus.msg` in a publisher/subscriber node (e.g., `7.3 - Using a Custom Message in a Topic`) in `my_py_pkg` or `my_cpp_pkg`.
+- Create a custom service definition (e.g., `7.4 - Creating a Custom ROS2 Service`) in `my_robot_interfaces`.
+- Extend `HardwareStatus.msg` with existing messages (e.g., `std_msgs/msg/Header`).
+- Apply custom interfaces to `turtlesim` or a final course project (hinted in 6.10).
+- Explore advanced interfaces in `sensor_msgs` or `geometry_msgs` for complex applications.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

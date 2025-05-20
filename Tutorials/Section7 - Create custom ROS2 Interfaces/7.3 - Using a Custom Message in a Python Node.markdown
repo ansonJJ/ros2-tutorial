@@ -1,0 +1,362 @@
+# 7.3 - Using a Custom Message in a Python Node
+
+This tutorial demonstrates how to use the custom `HardwareStatus.msg` message, created in [7.2 - Create and Build Your First Custom Message](Section%207%20-%20ROS2%20Interfaces/7.2%20-%20Create%20and%20Build%20Your%20First%20Custom%20Message.md), within a Python node in the `my_py_pkg` package. You’ll create a publisher node (`hardware_status_publisher.py`) that publishes `HardwareStatus` messages on the `/hardware_status` topic, import the custom interface from `my_robot_interfaces`, configure dependencies in `package.xml` and `setup.py`, build the node, and test it using `ros2 topic echo`. The tutorial builds on [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [7.1 - What is a ROS2 Interface](Section%207%20-%20ROS2%20Interfaces/7.1%20-%20What%20is%20a%20ROS2%20Interface.md), emphasizing the importance of sourcing the workspace after building new interfaces. It is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets **ROS2 Jazzy Jalisco** on **Ubuntu 24.04**.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `rclpy` and `my_robot_interfaces`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_py_pkg` and `my_robot_interfaces`, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [7.2 - Create and Build Your First Custom Message](Section%207%20-%20ROS2%20Interfaces/7.2%20-%20Create%20and%20Build%20Your%20First%20Custom%20Message.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Custom Message**: `HardwareStatus.msg` in `my_robot_interfaces`, with fields:
+  ```
+  float64 temperature
+  bool are_motors_ready
+  string debug_message
+  ```
+  Built and verified in 7.2.
+- **Publisher Knowledge**: Familiarity with Python publishers from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md).
+- **Interface Knowledge**: Understanding of ROS2 interfaces from [7.1 - What is a ROS2 Interface](Section%207%20-%20ROS2%20Interfaces/7.1%20-%20What%20is%20a%20ROS2%20Interface.md).
+- **CLI Tools**: Familiarity with `ros2 topic echo`, `ros2 run`, and `colcon build` from [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md) and prior sections.
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`sudo snap install code --classic`) with the ROS extension.
+  - `rclpy` and `my_robot_interfaces` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rclpy`).
+
+## Step-by-Step Instructions
+
+### Step 1: Create the Publisher Node
+
+Create a Python node in `my_py_pkg` to publish `HardwareStatus` messages.
+
+1. **Navigate to Python Package**:
+   ```bash
+   cd ~/ros2_ws/src/my_py_pkg/my_py_pkg
+   ```
+
+2. **Create the Node File**:
+   ```bash
+   touch hardware_status_publisher.py
+   chmod +x hardware_status_publisher.py
+   ```
+
+3. **Write the Node Code**:
+   Open `hardware_status_publisher.py` in VS Code:
+   ```bash
+   code hardware_status_publisher.py
+   ```
+   Add the following:
+   ```python
+   import rclpy
+   from rclpy.node import Node
+   from my_robot_interfaces.msg import HardwareStatus
+
+   class HardwareStatusPublisher(Node):
+       def __init__(self):
+           super().__init__('hardware_status_publisher')
+           self.hw_status_pub = self.create_publisher(HardwareStatus, 'hardware_status', 10)
+           self.timer = self.create_timer(1.0, self.publish_hardware_status)
+           self.get_logger().info('Hardware Status Publisher has been started')
+
+       def publish_hardware_status(self):
+           msg = HardwareStatus()
+           msg.temperature = 43.7
+           msg.are_motors_ready = True
+           msg.debug_message = 'Nothing special'
+           self.hw_status_pub.publish(msg)
+
+   def main(args=None):
+       rclpy.init(args=args)
+       node = HardwareStatusPublisher()
+       rclpy.spin(node)
+       node.destroy_node()
+       rclpy.shutdown()
+
+   if __name__ == '__main__':
+       main()
+   ```
+   - **Imports**:
+     - `rclpy`: ROS2 Python client library.
+     - `rclpy.node.Node`: Base class for nodes.
+     - `my_robot_interfaces.msg.HardwareStatus`: Custom message from `my_robot_interfaces`.
+   - **Node**:
+     - Name: `hardware_status_publisher`.
+     - Publisher: Publishes `HardwareStatus` messages on `/hardware_status` with queue size 10.
+     - Timer: Calls `publish_hardware_status` every 1 second.
+   - **Callback**:
+     - Creates a `HardwareStatus` message.
+     - Sets fields: `temperature` (43.7), `are_motors_ready` (True), `debug_message` ('Nothing special').
+     - Publishes the message.
+   - **Main**: Initializes ROS2, spins the node, and shuts down.
+
+**Screenshot**: `hardware_status_publisher.py` in VS Code:
+
+![Hardware Status Publisher Code](images/hardware_status_publisher_code.png "hardware_status_publisher.py in VS Code")
+
+### Step 2: Handle VS Code Environment Issues
+
+If VS Code doesn’t recognize `my_robot_interfaces.msg.HardwareStatus`, it’s likely due to an unsourced environment.
+
+1. **Close VS Code**:
+   ```bash
+   pkill code
+   ```
+
+2. **Open a Sourced Terminal**:
+   ```bash
+   terminator
+   source /opt/ros/jazzy/setup.bash
+   source ~/ros2_ws/install/setup.bash
+   ```
+
+3. **Reopen VS Code**:
+   ```bash
+   cd ~/ros2_ws
+   code .
+   ```
+   - Wait for the ROS extension to initialize (visible in the status bar).
+   - Verify `my_robot_interfaces.msg.HardwareStatus` is recognized (green, with autocompletion).
+
+4. **Why This Happens**:
+   - VS Code caches the environment from when it was opened.
+   - Building `my_robot_interfaces` adds new interfaces, requiring a fresh `source` to update the environment.
+   - Always source the workspace after building new interfaces or nodes.
+
+**Screenshot**: VS Code with ROS extension recognizing `HardwareStatus`:
+
+![VS Code Sourced](images/vscode_sourced_hardware_status.png "VS Code with HardwareStatus recognized")
+
+### Step 3: Update `package.xml`
+
+Add `my_robot_interfaces` as a dependency to `my_py_pkg`.
+
+1. **Open `package.xml`**:
+   ```bash
+   cd ~/ros2_ws/src/my_py_pkg
+   code package.xml
+   ```
+
+2. **Add Dependency**:
+   After existing `<depend>` tags (e.g., `<depend>rclpy</depend>`), add:
+   ```xml
+   <depend>my_robot_interfaces</depend>
+   ```
+   Example `package.xml` snippet:
+   ```xml
+   <depend>rclpy</depend>
+   <depend>std_msgs</depend>
+   <depend>example_interfaces</depend>
+   <depend>my_robot_interfaces</depend>
+   ```
+
+3. **Save**:
+   Ensure `my_robot_interfaces` is listed to allow importing `HardwareStatus`.
+
+**Screenshot**: Updated `package.xml` in VS Code:
+
+![Package XML Updated](images/package_xml_my_py_pkg.png "package.xml with my_robot_interfaces dependency")
+
+### Step 4: Update `setup.py`
+
+Configure the executable for `hardware_status_publisher.py`.
+
+1. **Open `setup.py`**:
+   ```bash
+   code setup.py
+   ```
+
+2. **Add Entry Point**:
+   In the `entry_points` section, under `console_scripts`, add:
+   ```python
+   'hardware_status_publisher = my_py_pkg.hardware_status_publisher:main',
+   ```
+   Example `setup.py` snippet:
+   ```python
+   from setuptools import setup
+
+   package_name = 'my_py_pkg'
+
+   setup(
+       name=package_name,
+       version='0.0.0',
+       packages=[package_name],
+       data_files=[
+           ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+           ('share/' + package_name, ['package.xml']),
+       ],
+       install_requires=['setuptools'],
+       zip_safe=True,
+       maintainer='user',
+       maintainer_email='user@todo.todo',
+       description='TODO: Package description',
+       license='TODO: License declaration',
+       tests_require=['pytest'],
+       entry_points={
+           'console_scripts': [
+               'hardware_status_publisher = my_py_pkg.hardware_status_publisher:main',
+           ],
+       },
+   )
+   ```
+
+3. **Save**:
+   The executable `hardware_status_publisher` links to `my_py_pkg.hardware_status_publisher:main`.
+
+**Screenshot**: Updated `setup.py` in VS Code:
+
+![Setup PY Updated](images/setup_py_updated.png "setup.py with hardware_status_publisher entry")
+
+### Step 5: Build the Package
+
+Build `my_py_pkg` to compile the node.
+
+1. **Navigate to Workspace Root**:
+   ```bash
+   cd ~/ros2_ws
+   ```
+
+2. **Build**:
+   Build only `my_py_pkg`:
+   ```bash
+   colcon build --packages-select my_py_pkg --symlink-install
+   ```
+   - `--symlink-install`: Allows Python file changes without rebuilding.
+   - Ensures `hardware_status_publisher` is executable.
+
+3. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+**Screenshot**: Terminal output of `colcon build`:
+
+![Colcon Build](images/colcon_build_my_py_pkg.png "colcon build output for my_py_pkg")
+
+### Step 6: Test the Node
+
+Run the node and verify published messages.
+
+1. **Run the Node**:
+   Open a sourced terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg hardware_status_publisher
+   ```
+   Expected output:
+   ```
+   [INFO] [hardware_status_publisher]: Hardware Status Publisher has been started
+   ```
+
+2. **List Topics**:
+   In another sourced terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 topic list
+   ```
+   Expected output includes:
+   ```
+   /hardware_status
+   /parameter_events
+   /rosout
+   ```
+
+3. **Echo Messages**:
+   ```bash
+   ros2 topic echo /hardware_status
+   ```
+   Expected output (every ~1 second):
+   ```
+   temperature: 43.7
+   are_motors_ready: true
+   debug_message: Nothing special
+   ---
+   ```
+
+**Screenshot**: Terminal output of `ros2 topic echo /hardware_status`:
+
+![Topic Echo](images/ros2_topic_echo_hardware_status.png "ros2 topic echo /hardware_status output")
+
+### Troubleshooting
+
+- **VS Code Doesn’t Recognize `HardwareStatus`**:
+  - Close VS Code: `pkill code`.
+  - Open a sourced terminal: `source ~/ros2_ws/install/setup.bash`.
+  - Reopen VS Code: `cd ~/ros2_ws; code .`.
+  - Verify ROS extension initializes.
+- **Build Errors**:
+  - Check `package.xml` for `<depend>my_robot_interfaces</depend>`.
+  - Verify `setup.py` has the correct `entry_points` entry.
+  - Ensure `hardware_status_publisher.py` has no syntax errors.
+  - Rebuild: `colcon build --packages-select my_py_pkg --symlink-install`.
+  - Clean if needed: `rm -rf build install log; colcon build`.
+- **Node Fails to Run**:
+  - Source workspace: `source ~/ros2_ws/install/setup.bash`.
+  - Check executable: `ros2 run my_py_pkg hardware_status_publisher`.
+  - Verify `my_robot_interfaces` is built: `ros2 interface show my_robot_interfaces/msg/HardwareStatus`.
+- **`ros2 topic echo` Shows Invalid Type**:
+  - Source the terminal: `source ~/ros2_ws/install/setup.bash`.
+  - Rebuild `my_robot_interfaces`: `colcon build --packages-select my_robot_interfaces`.
+  - Restart terminals and source again.
+- **No Messages Published**:
+  - Ensure node is running: `ros2 node list` should show `/hardware_status_publisher`.
+  - Check topic: `ros2 topic info /hardware_status` should show type `my_robot_interfaces/msg/HardwareStatus`.
+  - Verify code sets fields correctly (e.g., `msg.temperature = 43.7`).
+
+### Notes
+
+- **Fact-Checking**:
+  - **Custom Message Usage**: Import `my_robot_interfaces.msg.HardwareStatus` in Python, add `<depend>my_robot_interfaces</depend>` to `package.xml`, per [ROS2 Custom Interfaces Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html).
+  - **Publisher Node**: Follows standard `rclpy` publisher pattern, per [ROS2 Python Publisher Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html).
+  - **Dependency Management**: `package.xml` requires dependencies for imported packages, per [ROS2 Package Format](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html#editing-package-xml).
+  - **Setup.py**: `entry_points` defines executables, per [ROS2 Python Package Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html#editing-setup-py).
+  - **Environment Sourcing**: Must source workspace after building new interfaces or nodes, per [ROS2 Workspace Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html).
+  - **Topic Verification**: `ros2 topic list` and `ros2 topic echo` confirm publishing, per [ROS2 CLI Tools](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **VS Code Environment**: Sourcing required for ROS extension to recognize new interfaces, per [ROS VS Code Setup](https://github.com/ros/ros_vscode/wiki).
+
+- **Transcript Clarifications**:
+  - Specified `my_py_pkg` as the package, consistent with 3.2.
+  - Clarified VS Code sourcing issue: Close and reopen in a sourced terminal.
+  - Added precise `package.xml` and `setup.py` snippets.
+  - Emphasized sourcing after every build to avoid “invalid type” errors.
+  - Used `snake_case` for node and topic names (e.g., `hardware_status_publisher`, `hardware_status`).
+  - Specified executable name matches `setup.py` entry, not necessarily file name.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 7 - ROS2 Interfaces/`, alongside 7.1–7.2.
+  - Uses `images/` for five screenshots: `hardware_status_publisher_code.png`, `vscode_sourced_hardware_status.png`, `package_xml_my_py_pkg.png`, `setup_py_updated.png`, `colcon_build_my_py_pkg.png`, `ros2_topic_echo_hardware_status.png`.
+  - Assumes prior sections (3–6) and 7.1–7.2 exist.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `hardware_status_publisher_code.png`: `hardware_status_publisher.py` in VS Code.
+    - `vscode_sourced_hardware_status.png`: VS Code with `HardwareStatus` highlighted (green, autocompletion).
+    - `package_xml_my_py_pkg.png`: `package.xml` in VS Code with `my_robot_interfaces` dependency.
+    - `setup_py_updated.png`: `setup.py` in VS Code with `hardware_status_publisher` entry.
+    - `colcon_build_my_py_pkg.png`: Terminal output of `colcon build`.
+    - `ros2_topic_echo_hardware_status.png`: Terminal output of `ros2 topic echo /hardware_status`.
+  - Use GNOME Screenshot (`sudo apt install gnome-screenshot`) or Shutter (`sudo apt install shutter`).
+
+- **Best Practices**:
+  - Always source the workspace after building interfaces or nodes.
+  - Use `snake_case` for node names, topic names, and executable entries.
+  - Add dependencies explicitly in `package.xml` for all imported packages.
+  - Use `--symlink-install` for Python packages to avoid rebuilding on code changes.
+  - Verify publishing with `ros2 topic echo` in a sourced terminal.
+
+## Next Steps
+
+You’ve used the custom `HardwareStatus.msg` in a Python publisher node. Next, you’ll:
+- Create a Python subscriber node to listen to `/hardware_status` (e.g., `7.4 - Writing a Python Subscriber for a Custom Message`).
+- Use `HardwareStatus.msg` in a C++ node (e.g., `7.5 - Using a Custom Message in a C++ Node`).
+- Create a custom service definition (e.g., `7.6 - Creating a Custom ROS2 Service`) in `my_robot_interfaces`.
+- Integrate custom messages into `turtlesim` or a final course project (hinted in 6.10).
+- Explore advanced message fields (e.g., including `std_msgs/msg/Header` in `HardwareStatus.msg`).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.
