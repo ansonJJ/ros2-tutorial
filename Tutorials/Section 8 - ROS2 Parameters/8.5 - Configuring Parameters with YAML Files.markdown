@@ -1,0 +1,467 @@
+# 8.5 - Configuring Parameters with YAML Files
+
+This tutorial demonstrates how to configure ROS2 node parameters using YAML files, focusing on the `number_publisher` nodes from `my_py_pkg` and `my_cpp_pkg` (created in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md)). You’ll learn to create a YAML file to store parameters (`number` and `timer_period`) for one or multiple nodes, load the file at runtime using `ros2 run --ros-args --params-file`, and verify the behavior with `ros2 topic echo` and `ros2 topic hz`. The tutorial highlights the advantage of YAML files for managing multiple parameters and configurations efficiently, avoiding repetitive command-line arguments. It builds on [8.1 - What is a ROS2 Parameter?](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter%3F.md), [8.2 - Using Parameters in a Python Node](Section%208%20-%20ROS2%20Parameters/8.2%20-%20Using%20Parameters%20in%20a%20Python%20Node.md), [8.3 - Using Parameters in a C++ Node](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20Parameters%20in%20a%20C%2B%2B%20Node.md), and [8.4 - Experimenting with Parameters Using TurtleSim](Section%208%20-%20ROS2%20Parameters/8.4%20-%20Experimenting%20with%20Parameters%20Using%20TurtleSim.md), is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course, and targets **ROS2 Jazzy Jalisco** on **Ubuntu 24.04**.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `rclpy`, `rclcpp`, and `std_msgs`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_py_pkg` and `my_cpp_pkg`, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+  Ensure `~/.bashrc` sources the environment:
+  ```bash
+  echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
+  echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
+  ```
+- **Number Publisher Nodes**: The `number_publisher` nodes in `my_py_pkg` (Python) and `my_cpp_pkg` (C++), modified to use parameters (`number` and `timer_period`) as shown in [8.2](Section%208%20-%20ROS2%20Parameters/8.2%20-%20Using%20Parameters%20in%20a%20Python%20Node.md) and [8.3](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20Parameters%20in%20a%20C%2B%2B%20Node.md). They publish `std_msgs::msg::Int64` on the `/number` topic.
+- **Parameter Knowledge**: Understanding of ROS2 parameters and their command-line usage from [8.1](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter%3F.md), [8.2](Section%208%20-%20ROS2%20Parameters/8.2%20-%20Using%20Parameters%20in%20a%20Python%20Node.md), [8.3](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20Parameters%20in%20a%20C%2B%2B%20Node.md), and [8.4](Section%208%20-%20ROS2%20Parameters/8.4%20-%20Experimenting%20with%20Parameters%20Using%20TurtleSim.md).
+- **CLI Tools**: Familiarity with `ros2 run`, `ros2 param list`, `ros2 node list`, `ros2 topic echo`, and `ros2 topic hz` from [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md), [8.2](Section%208%20-%20ROS2%20Parameters/8.2%20-%20Using%20Parameters%20in%20a%20Python%20Node.md), [8.3](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20Parameters%20in%20a%20C%2B%2B%20Node.md), and [8.4](Section%208%20-%20ROS2%20Parameters/8.4%20-%20Experimenting%20with%20Parameters%20Using%20TurtleSim.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`sudo snap install code --classic`) or a text editor (e.g., `gedit`) for editing YAML files.
+  - `rclpy`, `rclcpp`, and `std_msgs` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rclpy ros-jazzy-rclcpp ros-jazzy-std-msgs`).
+
+## Step-by-Step Instructions
+
+### Step 1: Verify Number Publisher Nodes
+
+Ensure the `number_publisher` nodes in `my_py_pkg` and `my_cpp_pkg` are set up with parameters.
+
+1. **Check Python Node**:
+   Verify `~/ros2_ws/src/my_py_pkg/my_py_pkg/number_publisher.py` matches [8.2](Section%208%20-%20ROS2%20Parameters/8.2%20-%20Using%20Parameters%20in%20a%20Python%20Node.md):
+   ```python
+   import rclpy
+   from rclpy.node import Node
+   from std_msgs.msg import Int64
+
+   class NumberPublisher(Node):
+       def __init__(self):
+           super().__init__('number_publisher')
+           self.declare_parameter('number', 2)
+           self.declare_parameter('timer_period', 1.0)
+           self.number = self.get_parameter('number').value
+           self.timer_period = self.get_parameter('timer_period').value
+           self.publisher_ = self.create_publisher(Int64, 'number', 10)
+           self.timer = self.create_timer(self.timer_period, self.publish_number)
+           self.get_logger().info('Number Publisher has been started')
+
+       def publish_number(self):
+           msg = Int64()
+           msg.data = self.number
+           self.publisher_.publish(msg)
+
+   def main(args=None):
+       rclpy.init(args=args)
+       node = NumberPublisher()
+       rclpy.spin(node)
+       rclpy.shutdown()
+
+   if __name__ == '__main__':
+       main()
+   ```
+
+2. **Check C++ Node**:
+   Verify `~/ros2_ws/src/my_cpp_pkg/src/number_publisher.cpp` matches [8.3](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20Parameters%20in%20a%20C%2B%2B%20Node.md):
+   ```cpp
+   #include <chrono>
+   #include <rclcpp/rclcpp.hpp>
+   #include <std_msgs/msg/int64.hpp>
+
+   class NumberPublisher : public rclcpp::Node {
+   public:
+     NumberPublisher() : Node("number_publisher") {
+       this->declare_parameter("number", 2);
+       this->declare_parameter("timer_period", 1.0);
+       number_ = this->get_parameter("number").as_int();
+       double timer_period = this->get_parameter("timer_period").as_double();
+       publisher_ = create_publisher<std_msgs::msg::Int64>("number", 10);
+       timer_ = create_timer(
+           this, get_clock(),
+           std::chrono::duration<double>(timer_period),
+           std::bind(&NumberPublisher::publish_number, this));
+       RCLCPP_INFO(get_logger(), "Number Publisher has been started");
+     }
+
+   private:
+     void publish_number() {
+       auto msg = std_msgs::msg::Int64();
+       msg.data = number_;
+       publisher_->publish(msg);
+     }
+
+     int number_;
+     rclcpp::Publisher<std_msgs::msg::Int64>::SharedPtr publisher_;
+     rclcpp::TimerBase::SharedPtr timer_;
+   };
+
+   int main(int argc, char **argv) {
+     rclcpp::init(argc, argv);
+     auto node = std::make_shared<NumberPublisher>();
+     rclcpp::spin(node);
+     rclcpp::shutdown();
+     return 0;
+   }
+   ```
+
+3. **Build Packages**:
+   ```bash
+   cd ~/ros2_ws
+   colcon build --packages-select my_py_pkg my_cpp_pkg
+   source install/setup.bash
+   ```
+
+4. **List Parameters**:
+   Run the Python node:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg number_publisher
+   ```
+   In another terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 param list
+   ```
+   Expected output:
+   ```
+   /number_publisher:
+     number
+     timer_period
+     use_sim_time
+   ```
+   Stop the node (`Ctrl+C`) and repeat for the C++ node:
+   ```bash
+   ros2 run my_cpp_pkg number_publisher
+   ```
+   Same parameter list expected.
+
+**Screenshot**: `number_publisher.py` and `ros2 param list` output:
+
+![Number Publisher Code](images/number_publisher_yaml_code.png "number_publisher.py and ros2 param list output")
+
+### Step 2: Create a YAML Parameter File for a Single Node
+
+Create a YAML file to configure parameters for one `number_publisher` node.
+
+1. **Create Directory**:
+   ```bash
+   mkdir ~/yaml_params
+   ```
+
+2. **Create YAML File**:
+   ```bash
+   gedit ~/yaml_params/number_params.yaml
+   ```
+   Add:
+   ```yaml
+   number_publisher:
+     ros__parameters:
+       number: 5
+       timer_period: 0.7
+   ```
+   - **Structure**:
+     - `number_publisher`: Node name (matches the node’s default name).
+     - `ros__parameters`: Mandatory keyword indicating parameter definitions.
+     - `number: 5`: Sets the `number` parameter to `5` (integer).
+     - `timer_period: 0.7`: Sets the `timer_period` parameter to `0.7` (float).
+   - **Indentation**: Use 2 spaces (4 spaces under `ros__parameters`).
+   - **Data Types**: Match node declarations (`number` is integer, `timer_period` is float).
+   Save and close.
+
+3. **Verify File**:
+   ```bash
+   cat ~/yaml_params/number_params.yaml
+   ```
+
+**Screenshot**: `number_params.yaml` in `gedit`:
+
+![YAML Single Node](images/number_params_yaml_single.png "number_params.yaml for single node in gedit")
+
+### Step 3: Run the Node with the YAML File
+
+Load the YAML file to configure the node’s parameters.
+
+1. **Stop Any Running Nodes**:
+   ```bash
+   pkill terminator
+   ```
+
+2. **Run with YAML File**:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg number_publisher --ros-args --params-file ~/yaml_params/number_params.yaml
+   ```
+   - `--ros-args --params-file <path>`: Loads parameters from the specified YAML file.
+   - Expected output:
+     ```
+     [INFO] [number_publisher]: Number Publisher has been started
+     ```
+
+3. **Verify Published Messages**:
+   In another terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 topic echo /number
+   ```
+   Expected output (every ~0.7 seconds):
+   ```
+   data: 5
+   ---
+   ```
+
+4. **Verify Publish Rate**:
+   ```bash
+   ros2 topic hz /number
+   ```
+   Expected output:
+   ```
+   average rate: 1.429
+     min: 0.700s max: 0.700s std dev: 0.000s window: 10
+   ```
+   - Rate is ~1.429 Hz (period of 0.7 seconds, as `1/0.7 ≈ 1.429`).
+
+**Screenshot**: Terminal output of `ros2 run` with YAML and `ros2 topic echo`:
+
+![Run Single YAML](images/ros2_run_yaml_single.png "ros2 run with YAML file and ros2 topic echo")
+
+### Step 4: Create a YAML File for Multiple Nodes
+
+Extend the YAML file to configure parameters for two nodes with different names.
+
+1. **Rename YAML File**:
+   To reflect multiple nodes:
+   ```bash
+   mv ~/yaml_params/number_params.yaml ~/yaml_params/multi_number_params.yaml
+   ```
+
+2. **Edit YAML File**:
+   ```bash
+   gedit ~/yaml_params/multi_number_params.yaml
+   ```
+   Update to:
+   ```yaml
+   number_publisher_1:
+     ros__parameters:
+       number: 5
+       timer_period: 0.7
+   number_publisher_2:
+     ros__parameters:
+       number: 3
+       timer_period: 1.0
+   ```
+   - **Structure**:
+     - `number_publisher_1`: First node name, with `number=5`, `timer_period=0.7`.
+     - `number_publisher_2`: Second node name, with `number=3`, `timer_period=1.0`.
+     - Each node has its own `ros__parameters` section.
+   - **Note**: Node names must match the names used when launching (via `--ros-args -r`).
+   Save and close.
+
+3. **Verify File**:
+   ```bash
+   cat ~/yaml_params/multi_number_params.yaml
+   ```
+
+**Screenshot**: `multi_number_params.yaml` in `gedit`:
+
+![YAML Multi Node](images/multi_number_params_yaml.png "multi_number_params.yaml for multiple nodes in gedit")
+
+### Step 5: Run Multiple Nodes with the YAML File
+
+Launch two nodes with different names, loading parameters from the same YAML file.
+
+1. **Stop Any Running Nodes**:
+   ```bash
+   pkill terminator
+   ```
+
+2. **Run First Node (number_publisher_1)**:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg number_publisher --ros-args -r __node:=number_publisher_1 --params-file ~/yaml_params/multi_number_params.yaml
+   ```
+   - `-r __node:=number_publisher_1`: Renames the node to `number_publisher_1` to match the YAML.
+   - Loads parameters: `number=5`, `timer_period=0.7`.
+
+3. **Run Second Node (number_publisher_2)**:
+   In another terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_cpp_pkg number_publisher --ros-args -r __node:=number_publisher_2 --params-file ~/yaml_params/multi_number_params.yaml
+   ```
+   - Renames to `number_publisher_2`.
+   - Loads parameters: `number=3`, `timer_period=1.0`.
+
+4. **Verify Node Names**:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 node list
+   ```
+   Expected output:
+   ```
+   /number_publisher_1
+   /number_publisher_2
+   ```
+
+5. **Verify Published Messages**:
+   ```bash
+   ros2 topic echo /number
+   ```
+   Expected output (mixed, at different rates):
+   ```
+   data: 5
+   ---
+   data: 3
+   ---
+   data: 5
+   ---
+   ```
+   - `5` published every ~0.7 seconds by `number_publisher_1`.
+   - `3` published every ~1.0 second by `number_publisher_2`.
+
+6. **Verify Publish Rates**:
+   ```bash
+   ros2 topic hz /number
+   ```
+   Expected output (approximate, due to mixed publishers):
+   ```
+   average rate: 2.429
+     min: 0.400s max: 0.700s std dev: 0.150s window: 20
+   ```
+   - Combined rate is ~2.429 Hz (sum of ~1.429 Hz from 0.7s period and ~1.0 Hz from 1.0s period).
+
+**Screenshot**: Terminal output of `ros2 run` for two nodes and `ros2 topic echo`:
+
+![Run Multi YAML](images/ros2_run_yaml_multi.png "ros2 run with YAML file for two nodes and ros2 topic echo")
+
+### Step 6: Test YAML with Incorrect Node Name
+
+Demonstrate that parameters are ignored if the node name doesn’t match the YAML.
+
+1. **Stop Nodes**:
+   ```bash
+   pkill terminator
+   ```
+
+2. **Run with Default Name**:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg number_publisher --ros-args --params-file ~/yaml_params/multi_number_params.yaml
+   ```
+   - Uses default name `number_publisher` (not `number_publisher_1` or `number_publisher_2`).
+
+3. **Verify Published Messages**:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 topic echo /number
+   ```
+   Expected output (every ~1.0 second):
+   ```
+   data: 2
+   ---
+   ```
+   - Uses default parameters (`number=2`, `timer_period=1.0`) from the node’s code, as `number_publisher` is not in the YAML.
+
+**Screenshot**: Terminal output of `ros2 run` with unmatched node name:
+
+![Run YAML Unmatched](images/ros2_run_yaml_unmatched.png "ros2 run with unmatched node name and ros2 topic echo")
+
+### Troubleshooting
+
+- **Parameters Not Applied**:
+  - Verify node name in YAML matches the launched node name (check with `ros2 node list`).
+  - Ensure `-r __node:=<name>` is used if renaming.
+  - Check YAML syntax: 2-space indentation, `ros__parameters`, correct parameter names.
+  - Confirm file path in `--params-file` (use absolute path, e.g., `~/yaml_params/multi_number_params.yaml`).
+  - Run `ros2 param list` to verify parameters after launching.
+- **Invalid YAML Syntax**:
+  - Example error (missing colon):
+    ```yaml
+    number_publisher_1
+      ros__parameters:
+        number: 5
+    ```
+    Produces:
+    ```
+    [ERROR] [rclcpp]: Failed to parse yaml file: mapping values are not allowed here
+    ```
+  - Use `cat` to check file or validate with `yamllint` (`sudo apt install yamllint; yamllint ~/yaml_params/multi_number_params.yaml`).
+- **Incorrect Data Types**:
+  - Ensure YAML values match node declarations (e.g., `number: 5` for integer, `timer_period: 0.7` for float).
+  - Example error:
+    ```yaml
+    number: 5.5
+    ```
+    Produces:
+    ```
+    [ERROR] [rclcpp]: Parameter 'number' of type double not compatible with expected type integer
+    ```
+- **Node Not Publishing**:
+  - Verify node is running: `ros2 node list`.
+  - Check topic: `ros2 topic list` should show `/number`.
+  - Source workspace: `source ~/ros2_ws/install/setup.bash`.
+  - Rebuild: `colcon build --packages-select my_py_pkg my_cpp_pkg`.
+- **Mixed Publish Rates Incorrect**:
+  - Use `ros2 topic hz` to confirm individual rates if possible, or run nodes separately to isolate.
+  - Ensure `timer_period` values are correct in YAML.
+
+### Notes
+
+- **Fact-Checking**:
+  - **YAML Syntax**: Node name, `ros__parameters`, 2-space indentation, per [ROS2 Parameter YAML](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html#use-a-yaml-file-to-configure-parameters).
+  - **Loading YAML**: `--ros-args --params-file` loads parameters for matching node names, per [ROS2 Parameter CLI](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters.html).
+  - **Node Renaming**: `-r __node:=<name>` renames nodes, per [ROS2 Launch CLI](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Launch-Main.html).
+  - **Parameter Matching**: Only parameters for the exact node name are applied, others ignored, per [ROS2 Parameter Behavior](https://docs.ros.org/en/jazzy/Concepts/About-ROS-2-Parameters.html).
+  - **Topic Inspection**: `ros2 topic echo` and `ros2 topic hz` verify behavior, per [ROS2 Topic CLI](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics.html).
+  - **Data Types**: Must match node declarations, per [ROS2 Parameter Types](https://docs.ros.org/en/jazzy/Tutorials/Advanced/Parameters/Parameter-Types.html).
+
+- **Transcript Clarifications**:
+  - Specified `my_py_pkg` and `my_cpp_pkg` for clarity.
+  - Corrected “Ross underscore underscore parameters” to `ros__parameters`.
+  - Clarified node name matching requirement for YAML.
+  - Explained `ros2 topic hz` output (1.4 Hz from 0.7s period).
+  - Noted temporary `~/yaml_params` directory; future tutorials (e.g., launch files) will cover workspace integration.
+  - Omitted `use_sim_time` configuration, as not relevant here.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 8 - ROS2 Parameters/`, alongside 8.1–8.4.
+  - Uses `images/` for five screenshots: `number_publisher_yaml_code.png`, `number_params_yaml_single.png`, `ros2_run_yaml_single.png`, `multi_number_params_yaml.png`, `ros2_run_yaml_multi.png`, `ros2_run_yaml_unmatched.png`.
+  - Assumes prior sections (3–7) and 8.1–8.4 exist.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `number_publisher_yaml_code.png`: `number_publisher.py` in VS Code and `ros2 param list` output.
+    - `number_params_yaml_single.png`: `number_params.yaml` in `gedit`.
+    - `ros2_run_yaml_single.png`: Terminal output of `ros2 run` with single-node YAML and `ros2 topic echo`.
+    - `multi_number_params_yaml.png`: `multi_number_params.yaml` in `gedit`.
+    - `ros2_run_yaml_multi.png`: Terminal output of `ros2 run` for two nodes and `ros2 topic echo`.
+    - `ros2_run_yaml_unmatched.png`: Terminal output of `ros2 run` with unmatched node name and `ros2 topic echo`.
+  - Use GNOME Screenshot (`sudo apt install gnome-screenshot`) or Shutter (`sudo apt install shutter`) for terminal shots.
+
+- **Best Practices**:
+  - Use descriptive YAML file names (e.g., `multi_number_params.yaml`).
+  - Ensure node names in YAML match launched node names exactly.
+  - Validate YAML syntax with `yamllint` or by testing with `ros2 run`.
+  - Store YAML files in a dedicated directory (e.g., `~/yaml_params`) until integrated into the workspace (covered in launch file tutorials).
+  - Test parameter application incrementally with `ros2 topic echo` and `ros2 param get`.
+
+## Next Steps
+
+You’ve configured node parameters using YAML files for single and multiple nodes. Next, you’ll:
+- Dynamically update parameters at runtime with `ros2 param set` (e.g., `8.6 - Managing Parameters at Runtime`).
+- Integrate YAML files into launch files for automated node configuration (e.g., `9.1 - Creating ROS2 Launch Files`).
+- Apply parameter configurations to a project, such as enhancing `turtlesim` or a final course project (hinted in 6.10).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

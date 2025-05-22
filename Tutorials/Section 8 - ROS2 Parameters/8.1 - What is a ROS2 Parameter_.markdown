@@ -1,0 +1,152 @@
+# 8.1 - What is a ROS2 Parameter?
+
+This tutorial introduces ROS2 parameters, which are configuration values used to set node-specific settings at runtime without modifying code. Using the example of a camera driver node, you’ll learn why parameters are essential for flexible node configuration, their node-specific lifecycle, common data types, and how they are declared and set using tools like `ros2 run`. The tutorial sets the stage for practical exercises in later sections (e.g., declaring and using parameters in code). It is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course, targets **ROS2 Jazzy Jalisco** on **Ubuntu 24.04**, and assumes familiarity with nodes and packages from [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md).
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_py_pkg`, `my_cpp_pkg`, and `my_robot_interfaces`, set up in [3.1](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Node Knowledge**: Understanding of ROS2 nodes and packages from [4.1 - What is a ROS2 Node](Section%204%20-%20ROS2%20Nodes/4.1%20-%20What%20is%20a%20ROS2%20Node.md).
+- **CLI Tools**: Familiarity with `ros2 run` from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) or [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - ROS2 client libraries installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rclpy ros-jazzy-rclcpp`).
+
+## Why Parameters Are Needed
+
+Consider a **camera driver node** in a hypothetical `camera_pkg`. This node:
+- Connects to a camera via a hardware interface (e.g., USB).
+- Retrieves images and publishes them to a topic.
+- Requires configuration settings, such as:
+  - `device_name`: The USB device path (e.g., `/dev/video0`).
+  - `fps`: Frames per second (e.g., 30 or 60).
+  - `simulation_mode`: Boolean to toggle simulation vs. real hardware (e.g., `true` or `false`).
+
+### Problem with Hardcoding
+If these settings are hardcoded in the node’s source code:
+- **Changing Settings**: Modifying `device_name` or `fps` requires editing the code and rebuilding the package (e.g., `colcon build`).
+- **Multiple Instances**: Running two instances of the node with different settings (e.g., one in simulation mode, another in real mode) requires duplicating and modifying the code.
+- **Inflexibility**: Hardcoding limits runtime flexibility, making it impractical for dynamic environments or testing.
+
+### Solution: ROS2 Parameters
+ROS2 parameters solve these issues by:
+- Allowing **runtime configuration**: Set values when launching a node without changing code.
+- Being **node-specific**: Each node instance has its own set of parameters, enabling multiple instances with different settings.
+- Requiring **declaration in code**: Parameters are defined in the node’s source code but set externally (e.g., via `ros2 run`).
+- Supporting **no recompilation**: Changes to parameter values don’t require rebuilding the package.
+
+**Example**:
+- Launch the camera node with:
+  ```bash
+  ros2 run camera_pkg camera_driver --ros-args -p device_name:=/dev/video0 -p fps:=30 -p simulation_mode:=false
+  ```
+- Relaunch with different settings:
+  ```bash
+  ros2 run camera_pkg camera_driver --ros-args -p device_name:=/dev/video1 -p fps:=60 -p simulation_mode:=true
+  ```
+- No code changes or rebuilds are needed.
+
+**Screenshot**: Diagram of hardcoded settings vs. ROS2 parameters:
+
+![Parameters vs Hardcoding](images/parameters_vs_hardcoding.png "Diagram comparing hardcoded settings and ROS2 parameters")
+
+## What is a ROS2 Parameter?
+
+A **ROS2 parameter** is a named configuration value associated with a specific node, used to customize its behavior at runtime. Key characteristics include:
+
+- **Purpose**: Configures node settings (e.g., hardware settings, operational modes, thresholds).
+- **Node-Specific**: Parameters are tied to a node instance and exist only while the node is running. Two instances of the same node have independent parameter sets.
+- **Name and Type**:
+  - Each parameter has a unique name (e.g., `device_name`, `fps`, `simulation_mode`).
+  - Supported data types include:
+    - **Boolean**: `true` or `false` (e.g., `simulation_mode`).
+    - **Integer**: Whole numbers (e.g., `fps` as 30).
+    - **Double**: Floating-point numbers (e.g., `exposure_time` as 0.01).
+    - **String**: Text (e.g., `device_name` as `/dev/video0`).
+    - **Lists**: Arrays of the above types (e.g., `[0.1, 0.2, 0.3]` for a list of doubles).
+- **Declaration and Setting**:
+  - Declared in the node’s code (Python with `rclpy` or C++ with `rclcpp`).
+  - Set at runtime via:
+    - Command line (`ros2 run` with `--ros-args -p`).
+    - YAML configuration files (covered in later tutorials).
+    - Parameter services (e.g., `ros2 param set`).
+- **Runtime Flexibility**: Change values by relaunching the node or updating parameters dynamically without recompiling.
+
+**Example**:
+For the camera driver node:
+- Parameters: `device_name` (string), `fps` (integer), `simulation_mode` (boolean).
+- Declare in code (pseudo-code):
+  ```python
+  self.declare_parameter('device_name', '/dev/video0')
+  self.declare_parameter('fps', 30)
+  self.declare_parameter('simulation_mode', False)
+  ```
+- Launch with:
+  ```bash
+  ros2 run camera_pkg camera_driver --ros-args -p fps:=60
+  ```
+- The node uses `fps=60` without code changes.
+
+## Benefits of ROS2 Parameters
+
+- **Flexibility**: Configure nodes for different environments or use cases at runtime.
+- **Reusability**: Run multiple instances of a node with unique settings without duplicating code.
+- **Efficiency**: Avoid recompiling packages for configuration changes.
+- **Maintainability**: Separate configuration from logic, improving code clarity.
+- **Scalability**: Support complex systems with many configurable nodes.
+
+**Screenshot**: Terminal showing `ros2 run` with parameters:
+
+![ROS2 Run Parameters](images/ros2_run_parameters.png "ros2 run with parameter settings")
+
+## Notes
+
+- **Fact-Checking**:
+  - **Definition**: Parameters are node-specific configuration values, set at runtime, per [ROS2 Parameters Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-Python.html) and [ROS2 Concepts](https://docs.ros.org/en/jazzy/Concepts/About-ROS-2-Parameters.html).
+  - **Data Types**: Boolean, integer, double, string, and lists supported, per [ROS2 Parameter API](https://docs.ros.org/en/jazzy/Tutorials/Advanced/Parameters/Parameter-Types.html).
+  - **Node-Specific**: Parameters are tied to a node’s lifecycle, per [ROS2 Node Parameters](https://docs.ros.org/en/jazzy/Concepts/About-ROS-2-Parameters.html#parameter-lifecycle).
+  - **Runtime Setting**: Parameters can be set via `ros2 run`, YAML files, or `ros2 param`, per [ROS2 Parameter Usage](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters.html).
+  - **Declaration**: Must be declared in code (`rclpy` or `rclcpp`), per [ROS2 Python Parameters](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-Python.html) and [ROS2 C++ Parameters](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-CPP.html).
+  - **Camera Example**: Illustrates real-world use, consistent with ROS2 driver node patterns, per [ROS2 Camera Drivers](https://index.ros.org/p/usb_cam/).
+
+- **Transcript Clarifications**:
+  - Specified `camera_pkg` and `camera_driver` as hypothetical for clarity.
+  - Clarified parameter types (boolean, integer, double, string, lists) and their role in runtime configuration.
+  - Emphasized node-specific nature and lifecycle (parameters exist only while the node runs).
+  - Corrected “pH value” to “fps value” in the context of changing parameters.
+  - Added precise `ros2 run` syntax for setting parameters.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 8 - ROS2 Parameters/`, a new section.
+  - Uses `images/` for two screenshots: `parameters_vs_hardcoding.png`, `ros2_run_parameters.png`.
+  - Assumes prior sections (3–7) exist; `Section 8` is new.
+
+- **Images**:
+  - Create images for `images/`:
+    - `parameters_vs_hardcoding.png`: Diagram (use draw.io) comparing hardcoded settings (code editing, rebuilding) vs. ROS2 parameters (runtime configuration).
+    - `ros2_run_parameters.png`: Terminal mockup of `ros2 run camera_pkg camera_driver --ros-args -p device_name:=/dev/video0 -p fps:=30 -p simulation_mode:=false` (can be staged or created in a graphics tool).
+  - Use GNOME Screenshot (`sudo apt install gnome-screenshot`) or Shutter (`sudo apt install shutter`) for terminal shots.
+
+- **Best Practices**:
+  - Use descriptive parameter names (e.g., `device_name`, `fps`) in `snake_case`.
+  - Declare default values in code to ensure nodes function without external configuration.
+  - Test parameter changes via `ros2 run` before deploying in production.
+  - Document parameters in node documentation for user clarity.
+
+## Next Steps
+
+You’ve learned what ROS2 parameters are and why they’re essential for node configuration. Next, you’ll:
+- Declare and use parameters in a Python node (e.g., `8.2 - Using Parameters in a Python Node`).
+- Declare and use parameters in a C++ node (e.g., `8.3 - Using Parameters in a C++ Node`).
+- Set parameters using YAML files (e.g., `8.4 - Configuring Parameters with YAML Files`).
+- Dynamically update parameters with `ros2 param set` (e.g., `8.5 - Managing Parameters at Runtime`).
+- Integrate parameters into a project, such as `turtlesim` or a final course project (hinted in 6.10).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

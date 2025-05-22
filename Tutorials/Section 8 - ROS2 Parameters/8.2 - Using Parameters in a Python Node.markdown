@@ -1,0 +1,382 @@
+# 8.2 - Using Parameters in a Python Node
+
+This tutorial demonstrates how to add and use ROS2 parameters in a Python node by modifying the `number_publisher` node in the `my_py_pkg` package (created in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md)). You’ll learn to declare and get two parameters (`number` and `timer_period`), update the node to use these parameters instead of hardcoded values, build the package, and set parameter values at runtime using `ros2 run`. The tutorial also covers introspecting parameters with `ros2 param list`, verifying behavior with `ros2 topic echo`, and handling data type errors. It builds on [8.1 - What is a ROS2 Parameter?](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter%3F.md), is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course, and targets **ROS2 Jazzy Jalisco** on **Ubuntu 24.04**.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `rclpy` and `std_msgs`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_py_pkg`, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md) and [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+  Ensure `~/.bashrc` sources the workspace for new terminals:
+  ```bash
+  echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
+  echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
+  ```
+- **Number Publisher Node**: The `number_publisher` node in `my_py_pkg`, created in [5.2](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md), publishing an `Int64` message on the `/number` topic with a hardcoded value (e.g., 2) every 1 second.
+- **Parameter Knowledge**: Understanding of ROS2 parameters from [8.1 - What is a ROS2 Parameter?](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter%3F.md).
+- **CLI Tools**: Familiarity with `ros2 run`, `ros2 topic echo`, and `ros2 param list` from [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md) and [8.1](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter%3F.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`sudo snap install code --classic`) with the ROS and Python extensions.
+  - `rclpy` and `std_msgs` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rclpy ros-jazzy-std-msgs`).
+
+## Step-by-Step Instructions
+
+### Step 1: Understand the Existing Number Publisher Node
+
+The `number_publisher` node in `my_py_pkg`:
+- Publishes an `Int64` message on the `/number` topic.
+- Uses a hardcoded value (e.g., `number = 2`).
+- Publishes every 1 second using a timer with a hardcoded period (e.g., `1.0` seconds).
+- Code structure (assumed from [5.2](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md)):
+  ```python
+  import rclpy
+  from rclpy.node import Node
+  from std_msgs.msg import Int64
+
+  class NumberPublisher(Node):
+      def __init__(self):
+          super().__init__('number_publisher')
+          self.number = 2
+          self.publisher_ = self.create_publisher(Int64, 'number', 10)
+          self.timer = self.create_timer(1.0, self.publish_number)
+          self.get_logger().info('Number Publisher has been started')
+
+      def publish_number(self):
+          msg = Int64()
+          msg.data = self.number
+          self.publisher_.publish(msg)
+
+  def main(args=None):
+      rclpy.init(args=args)
+      node = NumberPublisher()
+      rclpy.spin(node)
+      rclpy.shutdown()
+
+  if __name__ == '__main__':
+      main()
+  ```
+
+**Problem**:
+- Hardcoded `number = 2` and timer period `1.0` require code changes and rebuilding to modify.
+- Parameters will allow runtime configuration of these values.
+
+**Screenshot**: Original `number_publisher.py` in VS Code:
+
+![Original Number Publisher](images/original_number_publisher.png "Original number_publisher.py in VS Code")
+
+### Step 2: Modify the Node to Use Parameters
+
+Add parameters `number` (integer) and `timer_period` (float) to replace hardcoded values.
+
+1. **Navigate to Node File**:
+   ```bash
+   cd ~/ros2_ws/src/my_py_pkg/my_py_pkg
+   ```
+
+2. **Open `number_publisher.py`**:
+   ```bash
+   code number_publisher.py
+   ```
+
+3. **Update the Code**:
+   Replace the existing code with:
+   ```python
+   import rclpy
+   from rclpy.node import Node
+   from std_msgs.msg import Int64
+
+   class NumberPublisher(Node):
+       def __init__(self):
+           super().__init__('number_publisher')
+           # Declare parameters
+           self.declare_parameter('number', 2)
+           self.declare_parameter('timer_period', 1.0)
+           # Get parameter values
+           self.number = self.get_parameter('number').value
+           self.timer_period = self.get_parameter('timer_period').value
+           # Use parameters
+           self.publisher_ = self.create_publisher(Int64, 'number', 10)
+           self.timer = self.create_timer(self.timer_period, self.publish_number)
+           self.get_logger().info('Number Publisher has been started')
+
+       def publish_number(self):
+           msg = Int64()
+           msg.data = self.number
+           self.publisher_.publish(msg)
+
+   def main(args=None):
+       rclpy.init(args=args)
+       node = NumberPublisher()
+       rclpy.spin(node)
+       rclpy.shutdown()
+
+   if __name__ == '__main__':
+       main()
+   ```
+   - **Changes**:
+     - **Declare Parameters**:
+       - `self.declare_parameter('number', 2)`: Declares an integer parameter `number` with default value `2`.
+       - `self.declare_parameter('timer_period', 1.0)`: Declares a float parameter `timer_period` with default value `1.0`.
+       - The default value’s type (e.g., `int` for `2`, `float` for `1.0`) sets the parameter’s data type.
+     - **Get Parameters**:
+       - `self.get_parameter('number').value`: Retrieves the `number` parameter’s value (an integer).
+       - `self.get_parameter('timer_period').value`: Retrieves the `timer_period` parameter’s value (a float).
+       - Use `.value` (a property, not a method) to access the parameter’s value; no parentheses.
+     - **Use Parameters**:
+       - Store values in `self.number` and `self.timer_period`.
+       - Use `self.number` in `publish_number` to set `msg.data`.
+       - Use `self.timer_period` in `create_timer` to set the timer period.
+     - **Placement**:
+       - Declare parameters early in `__init__` before publishers or timers.
+       - Get parameter values immediately after declaration for clarity.
+
+4. **Key Notes**:
+   - **Two-Step Process**:
+     1. Declare with `self.declare_parameter(<name>, <default_value>)`.
+     2. Get with `self.get_parameter(<name>).value`.
+   - **Data Types**:
+     - `number` is an integer because the default `2` is an `int`.
+     - `timer_period` is a float because the default `1.0` is a `float`.
+   - **Common Error**: Using `self.get_parameter('number').value()` (with parentheses) causes an error, as `.value` is a property, not a method.
+
+**Screenshot**: Updated `number_publisher.py` in VS Code:
+
+![Updated Number Publisher](images/updated_number_publisher.png "Updated number_publisher.py with parameters")
+
+### Step 3: Build the Package
+
+Rebuild `my_py_pkg` to ensure the updated node is installed.
+
+1. **Navigate to Workspace Root**:
+   ```bash
+   cd ~/ros2_ws
+   ```
+
+2. **Build**:
+   Build only `my_py_pkg`:
+   ```bash
+   colcon build --packages-select my_py_pkg
+   ```
+
+3. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+**Screenshot**: Terminal output of `colcon build`:
+
+![Colcon Build](images/colcon_build_my_py_pkg_parameters.png "colcon build output for my_py_pkg")
+
+### Step 4: Run the Node with Default Parameters
+
+Test the node using default parameter values.
+
+1. **Run the Node**:
+   Open a sourced terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_py_pkg number_publisher
+   ```
+   Expected output:
+   ```
+   [INFO] [number_publisher]: Number Publisher has been started
+   ```
+
+2. **List Parameters**:
+   In another sourced terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 param list
+   ```
+   Expected output:
+   ```
+   /number_publisher:
+     number
+     timer_period
+     use_sim_time
+   ```
+   - `number` and `timer_period` are the declared parameters.
+   - `use_sim_time` is a default parameter added to all nodes (controls simulation time usage).
+
+3. **Verify Published Messages**:
+   ```bash
+   ros2 topic echo /number
+   ```
+   Expected output (every ~1 second):
+   ```
+   data: 2
+   ---
+   ```
+   - Publishes `2` (default `number`) every 1 second (default `timer_period`).
+
+**Screenshot**: Terminal output of `ros2 param list` and `ros2 topic echo /number`:
+
+![Param List and Topic Echo](images/ros2_param_list_and_topic_echo_default.png "ros2 param list and ros2 topic echo with default parameters")
+
+### Step 5: Run the Node with Custom Parameters
+
+Set parameter values at runtime using `--ros-args -p`.
+
+1. **Stop the Node**:
+   Press `Ctrl+C` in the node’s terminal.
+
+2. **Run with Custom Parameters**:
+   ```bash
+   ros2 run my_py_pkg number_publisher --ros-args -p number:=3 -p timer_period:=0.5
+   ```
+   - `--ros-args`: Indicates ROS2-specific arguments.
+   - `-p number:=3`: Sets `number` to `3` (integer).
+   - `-p timer_period:=0.5`: Sets `timer_period` to `0.5` (float).
+
+3. **Verify Published Messages**:
+   In another terminal:
+   ```bash
+   ros2 topic echo /number
+   ```
+   Expected output (every ~0.5 seconds):
+   ```
+   data: 3
+   ---
+   ```
+
+**Screenshot**: Terminal output of `ros2 topic echo /number` with custom parameters:
+
+![Topic Echo Custom](images/ros2_topic_echo_custom_parameters.png "ros2 topic echo with number=3, timer_period=0.5")
+
+### Step 6: Test Partial Parameter Specification
+
+Run the node with only one parameter to observe default value usage.
+
+1. **Stop the Node**:
+   Press `Ctrl+C`.
+
+2. **Run with One Parameter**:
+   ```bash
+   ros2 run my_py_pkg number_publisher --ros-args -p number:=7
+   ```
+
+3. **Verify Published Messages**:
+   ```bash
+   ros2 topic echo /number
+   ```
+   Expected output (every ~1 second):
+   ```
+   data: 7
+   ---
+   ```
+   - `number` is `7` (set via command line).
+   - `timer_period` is `1.0` (default, as not specified).
+
+**Screenshot**: Terminal output of `ros2 topic echo /number` with partial parameters:
+
+![Topic Echo Partial](images/ros2_topic_echo_partial_parameters.png "ros2 topic echo with number=7, default timer_period")
+
+### Step 7: Test Data Type Errors
+
+Attempt to set a parameter with an incorrect data type to understand errors.
+
+1. **Stop the Node**:
+   Press `Ctrl+C`.
+
+2. **Run with Invalid Type**:
+   ```bash
+   ros2 run my_py_pkg number_publisher --ros-args -p number:=3.4
+   ```
+   Expected error (partial):
+   ```
+   [ERROR] [rcl]: Parameter 'number' of type double not compatible with expected type integer
+   ```
+   - `number` is declared as an integer (default `2`), so `3.4` (float) is invalid.
+
+3. **Fix and Retry**:
+   Use a valid integer:
+   ```bash
+   ros2 run my_py_pkg number_publisher --ros-args -p number:=3
+   ```
+   - Runs successfully, publishing `3` every 1 second.
+
+**Screenshot**: Terminal output of data type error:
+
+![Data Type Error](images/ros2_data_type_error.png "Error when setting number to a float")
+
+### Troubleshooting
+
+- **Parameter Not Found**:
+  - Verify `self.declare_parameter` calls in code.
+  - Check spelling in `ros2 run` (e.g., `number`, not `Number`).
+  - Rebuild: `colcon build --packages-select my_py_pkg`.
+  - Source workspace: `source ~/ros2_ws/install/setup.bash`.
+- **Data Type Error**:
+  - Ensure parameter values match declared types (e.g., integer for `number`, float for `timer_period`).
+  - Check default value type in `declare_parameter` (e.g., `2` for int, `1.0` for float).
+- **No Parameters Listed**:
+  - Ensure node is running: `ros2 node list` should show `/number_publisher`.
+  - Check terminal sourcing: `echo $ROS_DISTRO` should show `jazzy`.
+  - Run `ros2 param list` while the node is active.
+- **Node Publishes Incorrect Values**:
+  - Verify `self.get_parameter(<name>).value` uses correct parameter names.
+  - Check `ros2 run` command for correct `-p` syntax.
+  - Test with `ros2 topic echo /number` to confirm output.
+- **Syntax Error in Code**:
+  - Ensure `.value` is used without parentheses (property, not method).
+  - Check indentation and syntax in `number_publisher.py`.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Parameter Declaration**: `declare_parameter` sets name, default value, and type, per [ROS2 Python Parameters](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-Python.html).
+  - **Getting Parameters**: `get_parameter(<name>).value` retrieves the value, where `.value` is a property, per [ROS2 rclpy API](https://docs.ros.org/en/jazzy/_static/api/rclpy/index.html).
+  - **Data Types**: Type is inferred from default value (e.g., `int` for `2`, `float` for `1.0`), per [ROS2 Parameter Types](https://docs.ros.org/en/jazzy/Tutorials/Advanced/Parameters/Parameter-Types.html).
+  - **Runtime Setting**: `--ros-args -p <name>:=<value>` sets parameters at launch, per [ROS2 Parameter CLI](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters.html).
+  - **Introspection**: `ros2 param list` shows node parameters, including defaults like `use_sim_time`, per [ROS2 Parameter CLI](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters.html).
+  - **Error Handling**: Type mismatches produce clear errors, per [ROS2 Parameter Validation](https://docs.ros.org/en/jazzy/Concepts/About-ROS-2-Parameters.html).
+
+- **Transcript Clarifications**:
+  - Assumed `number_publisher` from [5.2](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) in `my_py_pkg`.
+  - Clarified two-step process: `declare_parameter` and `get_parameter(...).value`.
+  - Corrected “CLP parameter class” to `rclpy parameter class`.
+  - Emphasized `.value` as a property, not a method, to avoid parentheses errors.
+  - Specified `--ros-args -p` syntax and data type importance.
+  - Explained default parameters (`use_sim_time`) appearing in `ros2 param list`.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 8 - ROS2 Parameters/`, alongside 8.1.
+  - Uses `images/` for five screenshots: `original_number_publisher.png`, `updated_number_publisher.png`, `colcon_build_my_py_pkg_parameters.png`, `ros2_param_list_and_topic_echo_default.png`, `ros2_topic_echo_custom_parameters.png`, `ros2_topic_echo_partial_parameters.png`, `ros2_data_type_error.png`.
+  - Assumes prior sections (3–7) and 8.1 exist.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `original_number_publisher.png`: `number_publisher.py` before changes in VS Code.
+    - `updated_number_publisher.png`: `number_publisher.py` with parameters in VS Code.
+    - `colcon_build_my_py_pkg_parameters.png`: Terminal output of `colcon build`.
+    - `ros2_param_list_and_topic_echo_default.png`: Terminal output of `ros2 param list` and `ros2 topic echo /number` with defaults.
+    - `ros2_topic_echo_custom_parameters.png`: Terminal output of `ros2 topic echo /number` with `number=3`, `timer_period=0.5`.
+    - `ros2_topic_echo_partial_parameters.png`: Terminal output of `ros2 topic echo /number` with `number=7`.
+    - `ros2_data_type_error.png`: Terminal output of error when setting `number=3.4`.
+  - Use GNOME Screenshot (`sudo apt install gnome-screenshot`) or Shutter (`sudo apt install shutter`) for terminal shots.
+
+- **Best Practices**:
+  - Declare parameters early in the node’s `__init__` for clarity.
+  - Use descriptive `snake_case` names (e.g., `timer_period`).
+  - Set meaningful default values to ensure node functionality without external configuration.
+  - Always verify parameter types match defaults when setting via `ros2 run`.
+  - Test parameter behavior with `ros2 param list` and `ros2 topic echo` after launching.
+
+## Next Steps
+
+You’ve added parameters to a Python node and set them at runtime. Next, you’ll:
+- Add parameters to a C++ node (e.g., `8.3 - Using Parameters in a C++ Node`).
+- Configure parameters using YAML files (e.g., `8.4 - Configuring Parameters with YAML Files`).
+- Dynamically update parameters with `ros2 param set` (e.g., `8.5 - Managing Parameters at Runtime`).
+- Integrate parameters into a project, such as `turtlesim` or a final course project (hinted in 6.10).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

@@ -1,0 +1,461 @@
+# 8.3 - Using Parameters in a C++ Node
+
+This tutorial demonstrates how to add and use ROS2 parameters in a C++ node by modifying the `number_publisher` node in the `my_cpp_pkg` package (created in [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md)). You’ll learn to declare and get two parameters (`number` and `timer_period`), update the node to use these parameters instead of hardcoded values, build the package, and set parameter values at runtime using `ros2 run`. The tutorial also covers introspecting parameters with `ros2 param list`, verifying behavior with `ros2 topic echo`, and handling undeclared parameters. It builds on [8.1 - What is a ROS2 Parameter?](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter%3F.md) and [8.2 - Using Parameters in a Python Node](Section%208%20-%20ROS2%20Parameters/8.2%20-%20Using%20Parameters%20in%20a%20Python%20Node.md), is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course, and targets **ROS2 Jazzy Jalisco** on **Ubuntu 24.04**.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `rclcpp` and `std_msgs`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_cpp_pkg`, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md) and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+  Ensure `~/.bashrc` sources the workspace for new terminals:
+  ```bash
+  echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
+  echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
+  ```
+- **Number Publisher Node**: The `number_publisher` C++ node in `my_cpp_pkg`, created in [5.4](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md), publishing an `std_msgs::msg::Int64` message on the `/number` topic with a hardcoded value (e.g., 2) every 1 second.
+- **Parameter Knowledge**: Understanding of ROS2 parameters from [8.1](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter%3F.md) and Python parameter usage from [8.2](Section%208%20-%20ROS2%20Parameters/8.2%20-%20Using%20Parameters%20in%20a%20Python%20Node.md).
+- **CLI Tools**: Familiarity with `ros2 run`, `ros2 topic echo`, and `ros2 param list` from [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md), [8.1](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter%3F.md), and [8.2](Section%208%20-%20ROS2%20Parameters/8.2%20-%20Using%20Parameters%20in%20a%20Python%20Node.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`sudo snap install code --classic`) with ROS and C++ extensions.
+  - `rclcpp` and `std_msgs` installed (included in `ros-jazzy-desktop` or install via `sudo apt install ros-jazzy-rclcpp ros-jazzy-std-msgs`).
+
+## Step-by-Step Instructions
+
+### Step 1: Understand the Existing Number Publisher Node
+
+The `number_publisher` C++ node in `my_cpp_pkg`:
+- Publishes an `std_msgs::msg::Int64` message on the `/number` topic.
+- Uses a hardcoded value (e.g., `number_ = 2`).
+- Publishes every 1 second using a timer with a hardcoded period (e.g., `1.0` seconds).
+- Assumed code structure (from [5.4](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md)):
+  ```cpp
+  #include <rclcpp/rclcpp.hpp>
+  #include <std_msgs/msg/int64.hpp>
+
+  class NumberPublisher : public rclcpp::Node {
+  public:
+    NumberPublisher() : Node("number_publisher"), number_(2) {
+      publisher_ = create_publisher<std_msgs::msg::Int64>("number", 10);
+      timer_ = create_timer(this, get_clock(), std::chrono::seconds(1),
+                           std::bind(&NumberPublisher::publish_number, this));
+      RCLCPP_INFO(get_logger(), "Number Publisher has been started");
+    }
+
+  private:
+    void publish_number() {
+      auto msg = std_msgs::msg::Int64();
+      msg.data = number_;
+      publisher_->publish(msg);
+    }
+
+    int number_;
+    rclcpp::Publisher<std_msgs::msg::Int64>::SharedPtr publisher_;
+    rclcpp::TimerBase::SharedPtr timer_;
+  };
+
+  int main(int argc, char **argv) {
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<NumberPublisher>();
+    rclcpp::spin(node);
+    rclcpp::shutdown();
+    return 0;
+  }
+  ```
+
+**Problem**:
+- Hardcoded `number_ = 2` and timer period `1` require code changes and rebuilding to modify.
+- Parameters will allow runtime configuration of these values.
+
+**Screenshot**: Original `number_publisher.cpp` in VS Code:
+
+![Original Number Publisher](images/original_number_publisher_cpp.png "Original number_publisher.cpp in VS Code")
+
+### Step 2: Modify the Node to Use Parameters
+
+Add parameters `number` (integer) and `timer_period` (double) to replace hardcoded values.
+
+1. **Navigate to Node File**:
+   ```bash
+   cd ~/ros2_ws/src/my_cpp_pkg/src
+   ```
+
+2. **Open `number_publisher.cpp`**:
+   ```bash
+   code number_publisher.cpp
+   ```
+
+3. **Update the Code**:
+   Replace the existing code with:
+   ```cpp
+   #include <chrono>
+   #include <rclcpp/rclcpp.hpp>
+   #include <std_msgs/msg/int64.hpp>
+
+   class NumberPublisher : public rclcpp::Node {
+   public:
+     NumberPublisher() : Node("number_publisher") {
+       // Declare parameters
+       this->declare_parameter("number", 2);
+       this->declare_parameter("timer_period", 1.0);
+       // Get parameter values
+       number_ = this->get_parameter("number").as_int();
+       double timer_period = this->get_parameter("timer_period").as_double();
+       // Use parameters
+       publisher_ = create_publisher<std_msgs::msg::Int64>("number", 10);
+       timer_ = create_timer(
+           this, get_clock(),
+           std::chrono::duration<double>(timer_period),
+           std::bind(&NumberPublisher::publish_number, this));
+       RCLCPP_INFO(get_logger(), "Number Publisher has been started");
+     }
+
+   private:
+     void publish_number() {
+       auto msg = std_msgs::msg::Int64();
+       msg.data = number_;
+       publisher_->publish(msg);
+     }
+
+     int number_;
+     rclcpp::Publisher<std_msgs::msg::Int64>::SharedPtr publisher_;
+     rclcpp::TimerBase::SharedPtr timer_;
+   };
+
+   int main(int argc, char **argv) {
+     rclcpp::init(argc, argv);
+     auto node = std::make_shared<NumberPublisher>();
+     rclcpp::spin(node);
+     rclcpp::shutdown();
+     return 0;
+   }
+   ```
+   - **Changes**:
+     - **Include `<chrono>`**: Required for `std::chrono::duration`.
+     - **Declare Parameters**:
+       - `this->declare_parameter("number", 2)`: Declares an integer parameter `number` with default value `2`.
+       - `this->declare_parameter("timer_period", 1.0)`: Declares a double parameter `timer_period` with default value `1.0`.
+       - The default value’s type (`int` for `2`, `double` for `1.0`) sets the parameter’s data type.
+     - **Get Parameters**:
+       - `this->get_parameter("number").as_int()`: Retrieves `number` as an integer.
+       - `this->get_parameter("timer_period").as_double()`: Retrieves `timer_period` as a double.
+       - Use `.as_int()` or `.as_double()` methods (with parentheses) to convert the parameter object to the desired type.
+     - **Use Parameters**:
+       - Store `number` in `number_` (class attribute).
+       - Store `timer_period` in a local `double` variable (not a class attribute, as only used for timer initialization).
+       - Use `number_` in `publish_number` to set `msg.data`.
+       - Use `timer_period` in `create_timer` with `std::chrono::duration<double>` for the timer period.
+     - **Placement**:
+       - Declare and get parameters early in the constructor before publishers or timers.
+     - **Timer Syntax**:
+       - Replaced `std::chrono::seconds(1)` with `std::chrono::duration<double>(timer_period)` to support floating-point periods.
+
+4. **Key Notes**:
+   - **Two-Step Process**:
+     1. Declare with `declare_parameter(<name>, <default_value>)`.
+     2. Get with `get_parameter(<name>).as_<type>()`.
+   - **Data Types**:
+     - `number` is an integer because the default `2` is an `int`.
+     - `timer_period` is a double because the default `1.0` is a `double`.
+   - **C++ vs. Python**:
+     - C++ uses `as_int()` or `as_double()` methods (with parentheses) instead of Python’s `.value` property.
+     - Type must be explicitly specified in C++ when getting parameters.
+   - **Common Error**: Mismatching types (e.g., using `as_double()` for an integer parameter) causes runtime errors.
+
+**Screenshot**: Updated `number_publisher.cpp` in VS Code:
+
+![Updated Number Publisher](images/updated_number_publisher_cpp.png "Updated number_publisher.cpp with parameters")
+
+### Step 3: Update VS Code Configuration (Optional)
+
+Ensure IntelliSense and include paths are correct for `rclcpp` and `std_msgs`.
+
+1. **Open `c_cpp_properties.json`**:
+   ```bash
+   cd ~/ros2_ws/src/my_cpp_pkg
+   code .vscode/c_cpp_properties.json
+   ```
+
+2. **Verify Configuration**:
+   Ensure it includes:
+   ```json
+   {
+     "configurations": [
+       {
+         "name": "Linux",
+         "includePath": [
+           "${workspaceFolder}/**",
+           "/opt/ros/jazzy/include/**"
+         ],
+         "defines": [],
+         "compilerPath": "/usr/bin/gcc",
+         "cStandard": "c17",
+         "cppStandard": "c++17",
+         "intelliSenseMode": "gcc-x64"
+       }
+     ],
+     "version": 4
+   }
+   ```
+   - Ensures `rclcpp.hpp`, `std_msgs/msg/int64.hpp`, and `<chrono>` are resolved.
+
+**Screenshot**: `c_cpp_properties.json` in VS Code:
+
+![C++ Properties](images/c_cpp_properties_parameters.png "c_cpp_properties.json for my_cpp_pkg")
+
+### Step 4: Build the Package
+
+Rebuild `my_cpp_pkg` to compile the updated node.
+
+1. **Navigate to Workspace Root**:
+   ```bash
+   cd ~/ros2_ws
+   ```
+
+2. **Build**:
+   Build only `my_cpp_pkg`:
+   ```bash
+   colcon build --packages-select my_cpp_pkg
+   ```
+
+3. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+**Screenshot**: Terminal output of `colcon build`:
+
+![Colcon Build](images/colcon_build_my_cpp_pkg_parameters.png "colcon build output for my_cpp_pkg")
+
+### Step 5: Run the Node with Default Parameters
+
+Test the node using default parameter values.
+
+1. **Run the Node**:
+   Open a sourced terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 run my_cpp_pkg number_publisher
+   ```
+   Expected output:
+   ```
+   [INFO] [number_publisher]: Number Publisher has been started
+   ```
+
+2. **List Parameters**:
+   In another sourced terminal:
+   ```bash
+   terminator
+   source ~/ros2_ws/install/setup.bash
+   ros2 param list
+   ```
+   Expected output:
+   ```
+   /number_publisher:
+     number
+     timer_period
+     use_sim_time
+   ```
+   - `number` and `timer_period` are the declared parameters.
+   - `use_sim_time` is a default parameter added to all nodes.
+
+3. **Verify Published Messages**:
+   ```bash
+   ros2 topic echo /number
+   ```
+   Expected output (every ~1 second):
+   ```
+   data: 2
+   ---
+   ```
+   - Publishes `2` (default `number`) every 1 second (default `timer_period`).
+
+**Screenshot**: Terminal output of `ros2 param list` and `ros2 topic echo /number`:
+
+![Param List and Topic Echo](images/ros2_param_list_and_topic_echo_default_cpp.png "ros2 param list and ros2 topic echo with default parameters")
+
+### Step 6: Run the Node with Custom Parameters
+
+Set parameter values at runtime using `--ros-args -p`.
+
+1. **Stop the Node**:
+   Press `Ctrl+C` in the node’s terminal.
+
+2. **Run with Custom Parameters**:
+   ```bash
+   ros2 run my_cpp_pkg number_publisher --ros-args -p number:=20 -p timer_period:=3.4
+   ```
+   - `--ros-args`: Indicates ROS2-specific arguments.
+   - `-p number:=20`: Sets `number` to `20` (integer).
+   - `-p timer_period:=3.4`: Sets `timer_period` to `3.4` (double).
+
+3. **Verify Published Messages**:
+   In another terminal:
+   ```bash
+   ros2 topic echo /number
+   ```
+   Expected output (every ~3.4 seconds):
+   ```
+   data: 20
+   ---
+   ```
+
+**Screenshot**: Terminal output of `ros2 topic echo /number` with custom parameters:
+
+![Topic Echo Custom](images/ros2_topic_echo_custom_parameters_cpp.png "ros2 topic echo with number=20, timer_period=3.4")
+
+### Step 7: Test Undeclared Parameters
+
+Attempt to set an undeclared parameter to understand behavior.
+
+1. **Stop the Node**:
+   Press `Ctrl+C`.
+
+2. **Run with Undeclared Parameter**:
+   ```bash
+   ros2 run my_cpp_pkg number_publisher --ros-args -p fake_param:="test"
+   ```
+
+3. **List Parameters**:
+   ```bash
+   ros2 param list
+   ```
+   Expected output:
+   ```
+   /number_publisher:
+     number
+     timer_period
+     use_sim_time
+   ```
+   - `fake_param` does not appear, as it’s not declared in the node.
+   - Undeclared parameters are ignored without errors.
+
+4. **Verify Published Messages**:
+   ```bash
+   ros2 topic echo /number
+   ```
+   Expected output (every ~1 second):
+   ```
+   data: 2
+   ---
+   ```
+   - Uses default values (`number=2`, `timer_period=1.0`), as `fake_param` is ignored.
+
+**Screenshot**: Terminal output of `ros2 param list` with undeclared parameter:
+
+![Undeclared Param](images/ros2_param_list_undeclared_cpp.png "ros2 param list with undeclared parameter")
+
+### Step 8: Test Data Type Errors
+
+Attempt to set a parameter with an incorrect data type to understand errors.
+
+1. **Stop the Node**:
+   Press `Ctrl+C`.
+
+2. **Run with Invalid Type**:
+   ```bash
+   ros2 run my_cpp_pkg number_publisher --ros-args -p number:=3.4
+   ```
+   Expected error (partial):
+   ```
+   [ERROR] [rclcpp]: Parameter 'number' of type double not compatible with expected type integer
+   ```
+   - `number` is declared as an integer (default `2`), so `3.4` (double) is invalid.
+
+3. **Fix and Retry**:
+   Use a valid integer:
+   ```bash
+   ros2 run my_cpp_pkg number_publisher --ros-args -p number:=3
+   ```
+   - Runs successfully, publishing `3` every 1 second.
+
+**Screenshot**: Terminal output of data type error:
+
+![Data Type Error](images/ros2_data_type_error_cpp.png "Error when setting number to a double")
+
+### Troubleshooting
+
+- **Parameter Not Found**:
+  - Verify `declare_parameter` calls in code.
+  - Check spelling in `ros2 run` (e.g., `number`, not `Number`).
+  - Rebuild: `colcon build --packages-select my_cpp_pkg`.
+  - Source workspace: `source ~/ros2_ws/install/setup.bash`.
+- **Data Type Error**:
+  - Ensure parameter values match declared types (e.g., integer for `number`, double for `timer_period`).
+  - Check default value type in `declare_parameter` (e.g., `2` for int, `1.0` for double).
+  - Verify `as_int()` or `as_double()` matches the parameter type.
+- **No Parameters Listed**:
+  - Ensure node is running: `ros2 node list` should show `/number_publisher`.
+  - Check terminal sourcing: `echo $ROS_DISTRO` should show `jazzy`.
+  - Run `ros2 param list` while the node is active.
+- **Node Publishes Incorrect Values**:
+  - Verify `get_parameter(<name>).as_<type>()` uses correct parameter names and types.
+  - Check `ros2 run` command for correct `-p` syntax.
+  - Test with `ros2 topic echo /number` to confirm output.
+- **Compilation Errors**:
+  - Ensure `#include <chrono>` for `std::chrono::duration`.
+  - Check `.vscode/c_cpp_properties.json` for correct include paths.
+  - Clean and rebuild: `rm -rf build install log; colcon build --packages-select my_cpp_pkg`.
+- **Timer Period Issues**:
+  - Ensure `std::chrono::duration<double>` is used for floating-point timer periods.
+  - Verify `timer_period` is retrieved as `as_double()`.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Parameter Declaration**: `declare_parameter` sets name, default value, and type, per [ROS2 C++ Parameters](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-CPP.html).
+  - **Getting Parameters**: `get_parameter(<name>).as_<type>()` retrieves the value, per [ROS2 rclcpp API](https://docs.ros.org/en/jazzy/_static/api/rclcpp/index.html).
+  - **Data Types**: Type is inferred from default value (e.g., `int` for `2`, `double` for `1.0`), per [ROS2 Parameter Types](https://docs.ros.org/en/jazzy/Tutorials/Advanced/Parameters/Parameter-Types.html).
+  - **Runtime Setting**: `--ros-args -p <name>:=<value>` sets parameters at launch, per [ROS2 Parameter CLI](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters.html).
+  - **Introspection**: `ros2 param list` shows node parameters, including defaults like `use_sim_time`, per [ROS2 Parameter CLI](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters.html).
+  - **Undeclared Parameters**: Ignored without errors, per [ROS2 Parameter Behavior](https://docs.ros.org/en/jazzy/Concepts/About-ROS-2-Parameters.html).
+  - **Error Handling**: Type mismatches produce clear errors, per [ROS2 Parameter Validation](https://docs.ros.org/en/jazzy/Concepts/About-ROS-2-Parameters.html).
+
+- **Transcript Clarifications**:
+  - Assumed `number_publisher` from [5.4](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md) in `my_cpp_pkg`.
+  - Clarified two-step process: `declare_parameter` and `get_parameter(...).as_<type>()`.
+  - Corrected “Clcp” to `rclcpp`.
+  - Specified `as_int()` and `as_double()` as methods with parentheses, unlike Python’s `.value`.
+  - Used `std::chrono::duration<double>` for precise timer periods, addressing transcript’s syntax mention.
+  - Explained undeclared parameters are ignored, not added to `ros2 param list`.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 8 - ROS2 Parameters/`, alongside 8.1–8.2.
+  - Uses `images/` for six screenshots: `original_number_publisher_cpp.png`, `updated_number_publisher_cpp.png`, `c_cpp_properties_parameters.png`, `colcon_build_my_cpp_pkg_parameters.png`, `ros2_param_list_and_topic_echo_default_cpp.png`, `ros2_topic_echo_custom_parameters_cpp.png`, `ros2_param_list_undeclared_cpp.png`, `ros2_data_type_error_cpp.png`.
+  - Assumes prior sections (3–7) and 8.1–8.2 exist.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `original_number_publisher_cpp.png`: `number_publisher.cpp` before changes in VS Code.
+    - `updated_number_publisher_cpp.png`: `number_publisher.cpp` with parameters in VS Code.
+    - `c_cpp_properties_parameters.png`: `.vscode/c_cpp_properties.json` in VS Code.
+    - `colcon_build_my_cpp_pkg_parameters.png`: Terminal output of `colcon build`.
+    - `ros2_param_list_and_topic_echo_default_cpp.png`: Terminal output of `ros2 param list` and `ros2 topic echo /number` with defaults.
+    - `ros2_topic_echo_custom_parameters_cpp.png`: Terminal output of `ros2 topic echo /number` with `number=20`, `timer_period=3.4`.
+    - `ros2_param_list_undeclared_cpp.png`: Terminal output of `ros2 param list` with undeclared `fake_param`.
+    - `ros2_data_type_error_cpp.png`: Terminal output of error when setting `number=3.4`.
+  - Use GNOME Screenshot (`sudo apt install gnome-screenshot`) or Shutter (`sudo apt install shutter`) for terminal shots.
+
+- **Best Practices**:
+  - Declare parameters early in the node’s constructor for clarity.
+  - Use `snake_case` names (e.g., `timer_period`) consistent with ROS2 conventions.
+  - Set meaningful default values to ensure node functionality without external configuration.
+  - Match `as_<type>()` methods to declared parameter types to avoid runtime errors.
+  - Test parameter behavior with `ros2 param list` and `ros2 topic echo` after launching.
+  - Use `std::chrono::duration<double>` for flexible timer periods in C++.
+
+## Next Steps
+
+You’ve added parameters to a C++ node and set them at runtime. Next, you’ll:
+- Configure parameters using YAML files (e.g., `8.4 - Configuring Parameters with YAML Files`).
+- Dynamically update parameters with `ros2 param set` (e.g., `8.5 - Managing Parameters at Runtime`).
+- Integrate parameters into a project, such as `turtlesim` or a final course project (hinted in 6.10).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.
