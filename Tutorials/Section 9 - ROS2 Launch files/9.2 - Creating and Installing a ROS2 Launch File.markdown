@@ -1,0 +1,368 @@
+# 9.2 - Creating and Installing a ROS2 Launch File
+
+This tutorial demonstrates how to create and install a ROS2 launch file in XML format to automate the startup of the `number_publisher` (Python) and `number_counter` (C++) nodes from the `my_py_pkg` and `my_cpp_pkg` packages, respectively. You’ll create a dedicated `my_robot_bringup` package for launch files, configure it to install the `launch/` folder, and set up dependencies for execution. The launch file, `number_app.launch.xml`, starts a simple "number application" with two nodes, showcasing the basics of XML launch files. This tutorial builds on [9.1 - What is a ROS2 Launch File?](Section%209%20-%20ROS2%20Launch%20Files/9.1%20-%20What%20is%20a%20ROS2%20Launch%20File%3F.md), parameters from [8.1 - What is a ROS2 Parameter](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter.md) through [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md), services from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) through [6.6 - Writing a C++ Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.6%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(Non-OOP).md), and topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md). It is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`), including `example_interfaces`. Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_py_pkg` and `my_cpp_pkg`, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Package Dependencies**: Ensure `my_py_pkg` and `my_cpp_pkg`’s `package.xml` include `rclcpp`, `rclpy`, and `example_interfaces` (added in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md)).
+- **Nodes**: The `number_publisher` (Python) and `number_counter` (C++) nodes from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C%2B%2B%20Subscriber.md), publishing to `/number` and subscribing to `/number` with a counter on `/number_count`.
+- **Launch Knowledge**: Understanding of ROS2 launch files from [9.1 - What is a ROS2 Launch File?](Section%209%20-%20ROS2%20Launch%20Files/9.1%20-%20What%20is%20a%20ROS2%20Launch%20File%3F.md).
+- **Parameter Knowledge**: Familiarity with parameters from [8.1 - What is a ROS2 Parameter](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter.md) to [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md).
+- **CLI Tools**: Familiarity with `ros2 run`, `ros2 launch`, `ros2 node`, `ros2 topic`, and `rqt_graph` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`code`): `sudo snap install --classic code`.
+
+## Step-by-Step Instructions
+
+### Step 1: Create the Bringup Package
+
+Create a dedicated `my_robot_bringup` package to store launch files and configuration files (e.g., YAML for parameters).
+
+1. **Navigate to Workspace Source**:
+   ```bash
+   cd ~/ros2_ws/src
+   ```
+
+2. **Create the Package**:
+   Create `my_robot_bringup` with no dependencies (added later):
+   ```bash
+   ros2 pkg create my_robot_bringup
+   ```
+   **Expected Output**:
+   ```
+   going to create a new package
+   package name: my_robot_bringup
+   destination directory: /home/user/ros2_ws/src
+   package format: 3
+   version: 0.0.0
+   description: The my_robot_bringup package
+   maintainer: user <user@todo.todo>
+   license: TODO
+   build type: ament_cmake
+   dependencies: []
+   creating folder ./my_robot_bringup
+   creating ./my_robot_bringup/package.xml
+   creating ./my_robot_bringup/CMakeLists.txt
+   creating folder ./my_robot_bringup/include/my_robot_bringup
+   creating folder ./my_robot_bringup/src
+   creating ./my_robot_bringup/README.md
+   [WARNING]: Unknown license 'TODO'.  This has been set in the package.xml, but no LICENSE file has been created.
+   ```
+
+3. **Remove Unnecessary Folders**:
+   The package doesn’t need `include/` or `src/`:
+   ```bash
+   cd my_robot_bringup
+   rm -r include src
+   ```
+
+4. **Create Launch Folder**:
+   Create a `launch/` folder for launch files:
+   ```bash
+   mkdir launch
+   ```
+
+**Screenshot**: `my_robot_bringup` package structure:
+
+![Bringup Package Structure](images/my_robot_bringup_structure.png "my_robot_bringup package with launch folder")
+
+### Step 2: Configure the Package
+
+Configure `my_robot_bringup` to install the `launch/` folder and set dependencies for `my_py_pkg` and `my_cpp_pkg`.
+
+1. **Edit package.xml**:
+   Open `~/ros2_ws/src/my_robot_bringup/package.xml` in VS Code:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_bringup
+   code package.xml
+   ```
+   Add `exec_depend` tags for `my_py_pkg` and `my_cpp_pkg`, as the launch file executes their nodes. Update the description, maintainer, and license. The updated `package.xml` should look like:
+
+   ```xml
+   <?xml version="1.0"?>
+   <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+   <package format="3">
+     <name>my_robot_bringup</name>
+     <version>0.0.0</version>
+     <description>Launch files and configurations for the number application</description>
+     <maintainer email="user@todo.todo">user</maintainer>
+     <license>Apache-2.0</license>
+     <buildtool_depend>ament_cmake</buildtool_depend>
+     <exec_depend>my_py_pkg</exec_depend>
+     <exec_depend>my_cpp_pkg</exec_depend>
+   </package>
+   ```
+
+   **Changes**:
+   - Updated `<description>` to reflect the package’s purpose.
+   - Set `<license>` to `Apache-2.0` (common for ROS2).
+   - Added `<exec_depend>my_py_pkg</exec_depend>` and `<exec_depend>my_cpp_pkg</exec_depend>` for execution dependencies.
+
+2. **Edit CMakeLists.txt**:
+   Open `~/ros2_ws/src/my_robot_bringup/CMakeLists.txt` in VS Code:
+   ```bash
+   code CMakeLists.txt
+   ```
+   Simplify and add an `install` command to install the `launch/` folder to `share/my_robot_bringup/`. The updated `CMakeLists.txt` should look like:
+
+   ```cmake
+   cmake_minimum_required(VERSION 3.8)
+   project(my_robot_bringup)
+
+   find_package(ament_cmake REQUIRED)
+
+   install(DIRECTORY
+     launch
+     DESTINATION share/${PROJECT_NAME}/
+   )
+
+   ament_package()
+   ```
+
+   **Changes**:
+   - Removed `include_directories`, testing, and comments, as no code is compiled.
+   - Added `install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/)` to install the `launch/` folder.
+   - Kept `find_package(ament_cmake REQUIRED)` and `ament_package()` for package setup.
+
+**Screenshot**: `CMakeLists.txt` in VS Code:
+
+![CMakeLists Bringup](images/cmakelists_my_robot_bringup.png "CMakeLists.txt for my_robot_bringup")
+
+### Step 3: Create the Launch File
+
+Create an XML launch file, `number_app.launch.xml`, to start the `number_publisher` and `number_counter` nodes.
+
+1. **Navigate to Launch Folder**:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_bringup/launch
+   ```
+
+2. **Create the Launch File**:
+   Create `number_app.launch.xml`:
+   ```bash
+   touch number_app.launch.xml
+   ```
+
+3. **Write the Launch File**:
+   Open `number_app.launch.xml` in VS Code:
+   ```bash
+   code number_app.launch.xml
+   ```
+   Add the following XML code to launch the two nodes:
+
+   ```xml
+   <launch>
+       <node pkg="my_py_pkg" exec="number_publisher"/>
+       <node pkg="my_cpp_pkg" exec="number_counter"/>
+   </launch>
+   ```
+
+   **Code Explanation**:
+   - `<launch>`: Root tag for the launch file, required for all XML launch files.
+   - `<node>`: Defines a node to launch.
+     - `pkg="my_py_pkg"`: Specifies the package containing the executable.
+     - `exec="number_publisher"`: Specifies the executable name for the Python publisher.
+     - `pkg="my_cpp_pkg"`, `exec="number_counter"`: Specifies the C++ counter node.
+   - No additional configurations (e.g., parameters, remappings) are included for simplicity.
+
+**Screenshot**: `number_app.launch.xml` in VS Code:
+
+![Number App Launch File](images/number_app_launch_xml.png "number_app.launch.xml in VS Code")
+
+### Step 4: Build the Package
+
+Build the `my_robot_bringup` package to install the launch file.
+
+1. **Navigate to Workspace**:
+   ```bash
+   cd ~/ros2_ws
+   ```
+
+2. **Build the Package**:
+   Build only `my_robot_bringup` to avoid overwriting `my_py_pkg`’s `--symlink-install`:
+   ```bash
+   colcon build --packages-select my_robot_bringup
+   ```
+
+3. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+**Screenshot**: `colcon build` output:
+
+![Colcon Build Bringup](images/colcon_build_my_robot_bringup.png "colcon build for my_robot_bringup")
+
+### Step 5: Run and Test the Launch File
+
+Run the launch file and verify the nodes and topics.
+
+1. **Run the Launch File**:
+   Start the launch file:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 launch my_robot_bringup number_app.launch.xml
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [launch]: All log files can be found below /home/user/.ros/log/...
+   [INFO] [launch]: Default logging verbosity is set to INFO
+   [INFO] [number_publisher-1]: process started with pid [12345]
+   [INFO] [number_counter-2]: process started with pid [12346]
+   [INFO] [number_publisher-1]: Publishing: 1
+   [INFO] [number_counter-2]: Count: 1
+   [INFO] [number_publisher-1]: Publishing: 2
+   [INFO] [number_counter-2]: Count: 2
+   ...
+   ```
+
+2. **Verify Nodes**:
+   In a new terminal, check running nodes:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /number_counter
+   /number_publisher
+   ```
+
+3. **Verify Topics**:
+   Check available topics:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /number
+   /number_count
+   /parameter_events
+   /rosout
+   ```
+   Echo the `/number_count` topic:
+   ```bash
+   ros2 topic echo /number_count
+   ```
+   **Expected Output**:
+   ```
+   data: 1
+   ---
+   data: 2
+   ---
+   ...
+   ```
+
+4. **Visualize with RQT Graph**:
+   Visualize the node and topic connections:
+   ```bash
+   rqt_graph
+   ```
+   - Uncheck “Hide Dead Sinks” and “Hide Debug” in RQT Graph.
+   - Select “Nodes/Topics (all)” to see `/number_publisher` publishing to `/number` and `/number_counter` subscribing to `/number` and publishing to `/number_count`.
+
+**Screenshot**: RQT Graph of the number application:
+
+![RQT Graph Number App](images/rqt_graph_number_app.png "RQT Graph for number_app.launch.xml")
+
+### Step 6: Understand the Workflow
+
+- **Package Creation**:
+  - `my_robot_bringup` is a dedicated package for launch files, following the common “bringup” naming convention.
+  - Uses `ament_cmake` build type, with no source code (hence, no `include/` or `src/`).
+- **Package Configuration**:
+  - `package.xml`: Adds `exec_depend` for `my_py_pkg` and `my_cpp_pkg`, as the launch file executes their nodes.
+  - `CMakeLists.txt`: Installs the `launch/` folder to `share/my_robot_bringup/` for access via `ros2 launch`.
+- **Launch File**:
+  - `number_app.launch.xml` uses XML format with a `<launch>` root tag.
+  - Each `<node>` tag specifies a package and executable, equivalent to `ros2 run <package> <executable>`.
+  - Starts `number_publisher` (publishes to `/number`) and `number_counter` (subscribes to `/number`, publishes to `/number_count`).
+- **Execution**:
+  - `ros2 launch my_robot_bringup number_app.launch.xml` starts both nodes.
+  - Logs show process IDs (PIDs) and node outputs, confirming the application is running.
+- **Verification**:
+  - `ros2 node list` confirms node presence.
+  - `ros2 topic list` and `ros2 topic echo` verify topic communication.
+  - `rqt_graph` visualizes the node-topic graph.
+
+### Troubleshooting
+
+- **Build Errors**:
+  - Ensure `ament_cmake` is in `package.xml` (`<buildtool_depend>ament_cmake</buildtool_depend>`).
+  - Verify `install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/)` in `CMakeLists.txt`.
+  - Check for typos in `package.xml` or `CMakeLists.txt`.
+- **Launch File Not Found**:
+  - Confirm the launch file is in `~/ros2_ws/src/my_robot_bringup/launch/`.
+  - Rebuild and source: `colcon build --packages-select my_robot_bringup && source install/setup.bash`.
+  - Check with `ros2 launch my_robot_bringup <TAB><TAB>` for autocompletion.
+- **Nodes Not Starting**:
+  - Verify `pkg` and `exec` names match `ros2 run` commands (e.g., `ros2 run my_py_pkg number_publisher`).
+  - Ensure `my_py_pkg` and `my_cpp_pkg` are built: `colcon build --packages-select my_py_pkg my_cpp_pkg`.
+  - Check `<exec_depend>` tags in `package.xml`.
+- **No Topics**:
+  - Confirm nodes are running: `ros2 node list`.
+  - Check topic connections: `rqt_graph`.
+  - Ensure no remapping conflicts (none in this launch file).
+- **XML Syntax Errors**:
+  - Validate `<launch>` and `<node>` tags are properly closed.
+  - Check for typos in `pkg` or `exec` attributes.
+  - Use `ros2 launch --show-all` for detailed logs: `ros2 launch my_robot_bringup number_app.launch.xml --show-all`.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Bringup Package**: Common convention for launch files, per [ROS2 Launch Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Creating-Launch-Files.html#package-for-launch-files).
+  - **XML Launch**: Supported format with `<launch>` and `<node>` tags, per [ROS2 Launch XML](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Creating-Launch-Files.html#writing-an-xml-launch-file).
+  - **Node Tag**: `pkg` and `exec` (or `executable`) specify the package and executable, per [ROS2 launch XML API](https://docs.ros.org/en/jazzy/api/launch/xml_syntax.html#node).
+  - **exec_depend**: Used for execution dependencies, not build dependencies, per [ROS2 Package XML](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html#modify-the-package-xml).
+  - **Install Launch Files**: `install(DIRECTORY ...)` installs to `share/<package>/`, per [ROS2 CMake Integration](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Creating-Launch-Files.html#installing-launch-files).
+  - **ros2 launch**: Executes launch files, showing PIDs and logs, per [ROS2 Launch CLI](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Launch/Launch-Main.html#running-a-launch-file).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2”.
+  - Specified `my_robot_bringup` as the package name, replacing “Myrobot” for consistency.
+  - Clarified `exec_depend` vs. `depend` (`exec_depend` is sufficient for launch files).
+  - Used `number_publisher` and `number_counter` from 5.2 and 5.5, assuming they exist.
+  - Emphasized XML format for this tutorial, noting Python launch files are covered later.
+  - Corrected `CMakeLists.txt` syntax (curly braces `{PROJECT_NAME}`, not parentheses).
+
+- **Repository Structure**:
+  - Places tutorial in `Section 9 - ROS2 Launch Files/`, following 9.1.
+  - Uses `images/` for four screenshots: `my_robot_bringup_structure.png`, `cmakelists_my_robot_bringup.png`, `number_app_launch_xml.png`, `colcon_build_my_robot_bringup.png`, `rqt_graph_number_app.png`.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `my_robot_bringup_structure.png`: File explorer showing `my_robot_bringup` with `launch/`, `package.xml`, `CMakeLists.txt`.
+    - `cmakelists_my_robot_bringup.png`: `CMakeLists.txt` in VS Code.
+    - `number_app_launch_xml.png`: `number_app.launch.xml` in VS Code.
+    - `colcon_build_my_robot_bringup.png`: `colcon build` output.
+    - `rqt_graph_number_app.png`: RQT Graph showing `/number_publisher`, `/number`, `/number_counter`, `/number_count`.
+  - Use GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use a dedicated `bringup` package for launch files and configurations.
+  - Install launch files to `share/<package>/` for `ros2 launch` access.
+  - Use `exec_depend` for packages referenced in launch files.
+  - Name launch files descriptively (e.g., `number_app.launch.xml`).
+  - Build specific packages with `--packages-select` to preserve `--symlink-install`.
+
+## Next Steps
+
+You’ve created and installed a simple XML launch file to start the `number_publisher` and `number_counter` nodes. Next, you’ll:
+- Add parameters and remappings to the launch file (e.g., `9.3 - Adding Parameters and Remappings to ROS2 Launch Files`).
+- Create a Python launch file for more flexibility (e.g., `9.4 - Writing a ROS2 Launch File in Python`).
+- Use YAML files for parameters in launch files, building on [8.1 - What is a ROS2 Parameter](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter.md).
+- Launch `turtlesim` nodes with a launch file, extending [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Explore advanced launch features like namespaces and groups.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

@@ -1,0 +1,608 @@
+# 9.6 - Adding Namespaces to ROS2 Nodes in Launch Files
+
+This tutorial demonstrates how to add namespaces to the `number_publisher` and `number_counter` nodes in an XML launch file, ensuring proper topic remapping under namespaces. It enhances the XML launch file from [9.5 - Loading Parameters in a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.5%20-%20Loading%20Parameters%20in%20a%20ROS2%20Launch%20File.md), explains the impact of leading slashes in node and topic names, briefly shows the Python equivalent, and verifies the changes using ROS2 CLI tools and RQT Graph. The tutorial assumes the `number_publisher` node declares parameters `number` and `timer_period` (from [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md)) and builds on [9.1 - What is a ROS2 Launch File?](Section%209%20-%20ROS2%20Launch%20Files/9.1%20-%20What%20is%20a%20ROS2%20Launch%20File%3F.md) through [9.5 - Loading Parameters in a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.5%20-%20Loading%20Parameters%20in%20a%20ROS2%20Launch%20File.md), parameters from [8.1 - What is a ROS2 Parameter](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter.md) through [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md), services from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) through [6.6 - Writing a C++ Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.6%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(Non-OOP).md), and topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md). It is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_py_pkg`, `my_cpp_pkg`, and `my_robot_bringup`, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md), and [9.2 - Creating and Installing a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.2%20-%20Creating%20and%20Installing%20a%20ROS2%20Launch%20File.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Package Dependencies**: Ensure `my_robot_bringup`’s `package.xml` includes `<exec_depend>my_py_pkg</exec_depend>` and `<exec_depend>my_cpp_pkg</exec_depend>`, and `my_py_pkg` and `my_cpp_pkg` include `rclpy`, `rclcpp`, and `example_interfaces` (from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md)).
+- **Nodes**: The `number_publisher` (Python) and `number_counter` (C++) nodes from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C%2B%2B%20Subscriber.md), with `number_publisher` declaring parameters `number` and `timer_period` from [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md).
+- **Launch Knowledge**: Understanding of launch files, XML format, remapping, parameters, and YAML files from [9.1 - What is a ROS2 Launch File?](Section%209%20-%20ROS2%20Launch%20Files/9.1%20-%20What%20is%20a%20ROS2%20Launch%20File%3F.md) through [9.5 - Loading Parameters in a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.5%20-%20Loading%20Parameters%20in%20a%20ROS2%20Launch%20File.md).
+- **Parameter Knowledge**: Familiarity with ROS2 parameters and YAML files from [8.1 - What is a ROS2 Parameter](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter.md) through [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md).
+- **CLI Tools**: Familiarity with `ros2 run`, `ros2 node`, `ros2 topic`, `ros2 param`, `ros2 launch`, and `rqt_graph` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`code`): `sudo snap install --classic code`.
+
+## Understanding Namespaces in ROS2
+
+- **What is a Namespace?**:
+  - A prefix added to node names, topics, services, and parameters to organize and isolate ROS2 resources.
+  - Equivalent to `ros2 run <package> <executable> --ros-args --remap __ns:=/<namespace>`.
+  - Example: Namespace `/test` changes `/number_publisher` to `/test/number_publisher` and `/number` to `/test/number`.
+
+- **Why Use Namespaces?**:
+  - **Isolation**: Prevents conflicts in multi-robot or multi-node systems (e.g., `/robot1/wheel_control` vs. `/robot2/wheel_control`).
+  - **Modularity**: Allows identical nodes to run with different prefixes without code changes.
+  - **Organization**: Groups related nodes/topics in complex applications.
+
+- **Leading Slashes**:
+  - **Without Leading Slash**: Node/topic names (e.g., `number_publisher`, `number`) are relative. ROS2 prepends a slash (`/number_publisher`, `/number`) and applies namespaces (e.g., `/test/number_publisher`, `/test/number`).
+  - **With Leading Slash**: Names (e.g., `/number`) are absolute, ignoring namespaces (remains `/number`).
+  - **Best Practice**: Avoid leading slashes in code for flexibility, allowing namespaces to apply dynamically.
+
+- **Namespaces in Launch Files**:
+  - XML: Use `namespace` attribute in `<node>` (e.g., `namespace="/abc"`).
+  - Python: Use `namespace` parameter in `Node` (e.g., `namespace='/abc'`).
+  - Centralizes namespace configuration, avoiding manual `--ros-args`.
+
+- **Remapping with Namespaces**:
+  - Remappings must account for namespaces. Use relative names (e.g., `from="number" to="my_number"`) to apply after namespace (e.g., `/abc/number` to `/abc/my_number`).
+  - Absolute remappings (e.g., `from="/abc/number" to="/abc/my_number"`) are less scalable.
+
+## Step-by-Step Instructions
+
+### Step 1: Verify the Bringup Package
+
+Ensure the `my_robot_bringup` package is set up with the `config/` folder from [9.5 - Loading Parameters in a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.5%20-%20Loading%20Parameters%20in%20a%20ROS2%20Launch%20File.md).
+
+1. **Check Package Structure**:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_bringup
+   ls
+   ```
+   **Expected Output**:
+   ```
+   CMakeLists.txt  config  launch  package.xml
+   ```
+   Verify `launch/` and `config/`:
+   ```bash
+   ls launch
+   ```
+   **Expected Output**:
+   ```
+   number_app.launch.xml  number_app.launch.py  number_app_from_python.launch.xml
+   ```
+   ```bash
+   ls config
+   ```
+   **Expected Output**:
+   ```
+   number_app.yaml
+   ```
+
+2. **Verify package.xml**:
+   Open `package.xml`:
+   ```bash
+   code package.xml
+   ```
+   Confirm `<exec_depend>my_py_pkg</exec_depend>` and `<exec_depend>my_cpp_pkg</exec_depend>`.
+
+3. **Verify CMakeLists.txt**:
+   Open `CMakeLists.txt`:
+   ```bash
+   code CMakeLists.txt
+   ```
+   Confirm:
+   ```cmake
+   install(DIRECTORY
+     launch config
+     DESTINATION share/${PROJECT_NAME}/
+   )
+   ```
+
+**Screenshot**: `my_robot_bringup` package structure (reused from 9.5):
+
+![Bringup Package Structure](images/my_robot_bringup_structure.png "my_robot_bringup package with launch and config folders")
+
+### Step 2: Verify Node Code (Leading Slashes)
+
+Ensure `number_publisher` and `number_counter` use relative names (no leading slashes) for flexibility with namespaces.
+
+1. **Check number_publisher**:
+   Open `~/ros2_ws/src/my_py_pkg/my_py_pkg/number_publisher.py`:
+   ```bash
+   cd ~/ros2_ws/src/my_py_pkg/my_py_pkg
+   code number_publisher.py
+   ```
+   Verify (from [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md)):
+   ```python
+   import rclpy
+   from rclpy.node import Node
+   from std_msgs.msg import Int64
+
+   class NumberPublisher(Node):
+       def __init__(self):
+           super().__init__('number_publisher')
+           self.declare_parameter('number', 2)
+           self.declare_parameter('timer_period', 1.0)
+           self.number = self.get_parameter('number').value
+           self.timer_period = self.get_parameter('timer_period').value
+           self.publisher_ = self.create_publisher(Int64, 'number', 10)
+           self.timer = self.create_timer(self.timer_period, self.timer_callback)
+
+       def timer_callback(self):
+           msg = Int64()
+           msg.data = self.number
+           self.publisher_.publish(msg)
+           self.get_logger().info(f'Publishing: {msg.data}')
+
+   def main(args=None):
+       rclpy.init(args=args)
+       node = NumberPublisher()
+       rclpy.spin(node)
+       node.destroy_node()
+       rclpy.shutdown()
+
+   if __name__ == '__main__':
+       main()
+   ```
+
+   **Key Points**:
+   - Node name: `number_publisher` (no leading `/`).
+   - Topic name: `number` (no leading `/`).
+   - Allows namespaces (e.g., `/abc/number_publisher`, `/abc/number`).
+
+2. **Check number_counter**:
+   Open `~/ros2_ws/src/my_cpp_pkg/src/number_counter.cpp`:
+   ```bash
+   cd ~/ros2_ws/src/my_cpp_pkg/src
+   code number_counter.cpp
+   ```
+   Verify (from [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C%2B%2B%20Subscriber.md)):
+   ```cpp
+   #include "rclcpp/rclcpp.hpp"
+   #include "std_msgs/msg/int64.hpp"
+
+   class NumberCounter : public rclcpp::Node {
+   public:
+       NumberCounter() : Node("number_counter"), count_(0) {
+           publisher_ = create_publisher<std_msgs::msg::Int64>("number_count", 10);
+           subscription_ = create_subscription<std_msgs::msg::Int64>(
+               "number", 10, std::bind(&NumberCounter::callback, this, std::placeholders::_1));
+       }
+
+   private:
+       void callback(const std_msgs::msg::Int64::SharedPtr msg) {
+           count_ += msg->data;
+           auto count_msg = std_msgs::msg::Int64();
+           count_msg.data = count_;
+           publisher_.publish(count_msg);
+           RCLCPP_INFO(get_logger(), "Count: %ld", count_);
+       }
+
+       rclcpp::Subscription<std_msgs::msg::Int64>::SharedPtr subscription_;
+       rclcpp::Publisher<std_msgs::msg::Int64>::SharedPtr publisher_;
+       int64_t count_;
+   };
+
+   int main(int argc, char *argv[]) {
+       rclcpp::init(argc, argv);
+       rclcpp::spin(std::make_shared<NumberCounter>());
+       rclcpp::shutdown();
+       return 0;
+   }
+   ```
+
+   **Key Points**:
+   - Node name: `number_counter` (no leading `/`).
+   - Topic names: `number` and `number_count` (no leading `/`).
+   - Allows namespaces (e.g., `/abc/number_counter`, `/abc/number`).
+
+3. **(Optional) Test Leading Slash Impact**:
+   Modify `number_publisher.py` to use absolute topic name:
+   ```python
+   self.publisher_ = self.create_publisher(Int64, '/number', 10)
+   ```
+   Build and test:
+   ```bash
+   cd ~/ros2_ws
+   colcon build --packages-select my_py_pkg
+   source install/setup.bash
+   ros2 run my_py_pkg number_publisher --ros-args --remap __ns:=/test
+   ```
+   Check topics:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /number
+   /parameter_events
+   /rosout
+   ```
+   Check nodes:
+   ```bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /test/number_publisher
+   ```
+   **Observation**: Topic remains `/number` (absolute), but node is `/test/number_publisher`. Revert to `number` (no leading `/`) for the rest of the tutorial:
+   ```python
+   self.publisher_ = self.create_publisher(Int64, 'number', 10)
+   ```
+   Rebuild:
+   ```bash
+   colcon build --packages-select my_py_pkg
+   source install/setup.bash
+   ```
+
+**Screenshot**: `number_publisher.py` in VS Code (relative names):
+
+![Number Publisher Code](images/number_publisher_no_slash.png "number_publisher.py with relative names")
+
+### Step 3: Update the XML Launch File
+
+Modify `number_app.launch.xml` to add namespaces and adjust remappings.
+
+1. **Navigate to Launch Folder**:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_bringup/launch
+   ```
+
+2. **Edit the Launch File (Incorrect Remapping)**:
+   Open `number_app.launch.xml`:
+   ```bash
+   code number_app.launch.xml
+   ```
+   Update to (demonstrating incorrect remapping):
+   ```xml
+   <launch>
+       <node pkg="my_py_pkg" exec="number_publisher" name="my_number_publisher" namespace="/abc">
+           <remap from="/number" to="/my_number"/>
+           <param from="$(find-pkg-share my_robot_bringup)/config/number_app.yaml"/>
+       </node>
+       <node pkg="my_cpp_pkg" exec="number_counter" name="my_number_counter">
+           <remap from="/number" to="/my_number"/>
+       </node>
+   </launch>
+   ```
+
+   **Changes**:
+   - Added `namespace="/abc"` to `my_number_publisher`.
+   - Used absolute remapping `<remap from="/number" to="/my_number"/>` (incorrect, for demonstration).
+
+3. **Test Incorrect Remapping**:
+   Build and test:
+   ```bash
+   cd ~/ros2_ws
+   colcon build --packages-select my_robot_bringup
+   source install/setup.bash
+   ros2 launch my_robot_bringup number_app.launch.xml
+   ```
+   Check nodes:
+   ```bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /abc/my_number_publisher
+   /my_number_counter
+   ```
+   Check topics:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /abc/number
+   /my_number
+   /number_count
+   /parameter_events
+   /rosout
+   ```
+   Visualize with RQT Graph:
+   ```bash
+   rqt_graph
+   ```
+   - Set “Namespaces” to 0.
+   - Observe: `/abc/my_number_publisher` publishes to `/abc/number`, but `/my_number_counter` subscribes to `/my_number` (mismatch).
+
+**Screenshot**: RQT Graph with topic mismatch:
+
+![RQT Graph Mismatch](images/rqt_graph_namespace_mismatch.png "RQT Graph with topic mismatch")
+
+4. **Edit the Launch File (Correct Remapping)**:
+   Update `number_app.launch.xml` to use relative remappings and apply namespace to both nodes:
+   ```xml
+   <launch>
+       <node pkg="my_py_pkg" exec="number_publisher" name="my_number_publisher" namespace="/abc">
+           <remap from="number" to="my_number"/>
+           <param from="$(find-pkg-share my_robot_bringup)/config/number_app.yaml"/>
+       </node>
+       <node pkg="my_cpp_pkg" exec="number_counter" name="my_number_counter" namespace="/abc">
+           <remap from="number" to="my_number"/>
+       </node>
+   </launch>
+   ```
+
+   **Changes**:
+   - Changed `<remap from="/number" to="/my_number"/>` to `<remap from="number" to="my_number"/>` (relative names).
+   - Added `namespace="/abc"` to `my_number_counter`.
+   - Ensures both nodes use `/abc/my_number` after remapping `/abc/number` to `/abc/my_number`.
+
+**Screenshot**: `number_app.launch.xml` with namespaces:
+
+![Number App Launch Namespace](images/number_app_launch_xml_namespace.png "number_app.launch.xml with namespaces")
+
+### Step 4: (Optional) Update the Python Launch File
+
+For reference, update `number_app.launch.py` to include namespaces and relative remappings.
+
+1. **Edit the Python Launch File**:
+   Open `number_app.launch.py`:
+   ```bash
+   code number_app.launch.py
+   ```
+   Update to:
+   ```python
+   from launch import LaunchDescription
+   from launch_ros.actions import Node
+   from ament_index_python.packages import get_package_share_directory
+   import os
+
+   def generate_launch_description():
+       ld = LaunchDescription()
+
+       config = os.path.join(
+           get_package_share_directory('my_robot_bringup'),
+           'config',
+           'number_app.yaml'
+       )
+
+       number_publisher_node = Node(
+           package='my_py_pkg',
+           executable='number_publisher',
+           name='my_number_publisher',
+           namespace='/abc',
+           remappings=[('number', 'my_number')],
+           parameters=[config]
+       )
+
+       number_counter_node = Node(
+           package='my_cpp_pkg',
+           executable='number_counter',
+           name='my_number_counter',
+           namespace='/abc',
+           remappings=[('number', 'my_number')]
+       )
+
+       ld.add_action(number_publisher_node)
+       ld.add_action(number_counter_node)
+
+       return ld
+   ```
+
+   **Changes**:
+   - Added `namespace='/abc'` to both nodes.
+   - Used relative remappings `remappings=[('number', 'my_number')]`.
+
+**Screenshot**: `number_app.launch.py` with namespaces:
+
+![Number App Python Namespace](images/number_app_launch_py_namespace.png "number_app.launch.py with namespaces")
+
+### Step 5: Build and Test the XML Launch File
+
+Test the updated `number_app.launch.xml` with namespaces.
+
+1. **Build the Package**:
+   ```bash
+   cd ~/ros2_ws
+   colcon build --packages-select my_robot_bringup
+   ```
+
+2. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+3. **Run the Launch File**:
+   ```bash
+   ros2 launch my_robot_bringup number_app.launch.xml
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [launch]: All log files can be found below /home/user/.ros/log/...
+   [INFO] [launch]: Default logging verbosity is set to INFO
+   [INFO] [number_publisher-1]: process started with pid [12345]
+   [INFO] [number_counter-2]: process started with pid [12346]
+   [INFO] [number_publisher-1]: Publishing: 6
+   [INFO] [number_counter-2]: Count: 6
+   [INFO] [number_publisher-1]: Publishing: 6
+   [INFO] [number_counter-2]: Count: 12
+   ...
+   ```
+
+4. **Verify Nodes**:
+   ```bash
+   ros2 node list
+   ```
+   **Expected Output**:
+   ```
+   /abc/my_number_counter
+   /abc/my_number_publisher
+   ```
+
+5. **Verify Topics**:
+   ```bash
+   ros2 topic list
+   ```
+   **Expected Output**:
+   ```
+   /abc/my_number
+   /abc/number_count
+   /parameter_events
+   /rosout
+   ```
+   Echo topic:
+   ```bash
+   ros2 topic echo /abc/my_number
+   ```
+   **Expected Output**:
+   ```
+   data: 6
+   ---
+   data: 6
+   ---
+   ...
+   ```
+
+6. **Verify Parameters**:
+   ```bash
+   ros2 param list /abc/my_number_publisher
+   ```
+   **Expected Output**:
+   ```
+   /abc/my_number_publisher/number
+   /abc/my_number_publisher/timer_period
+   /abc/my_number_publisher/use_sim_time
+   ```
+   ```bash
+   ros2 param get /abc/my_number_publisher/number
+   ```
+   **Expected Output**:
+   ```
+   Integer value is: 6
+   ```
+
+7. **Visualize with RQT Graph**:
+   ```bash
+   rqt_graph
+   ```
+   - Set “Namespaces” to 0 to see `/abc/my_number_publisher` → `/abc/my_number` → `/abc/my_number_counter` → `/abc/number_count`.
+   - Set “Namespaces” to 1 to group nodes under `/abc`.
+
+**Screenshot**: RQT Graph with namespaces (Namespaces=0):
+
+![RQT Graph Namespace](images/rqt_graph_namespace_correct.png "RQT Graph with correct namespace and remapping")
+
+**Screenshot**: RQT Graph with namespaces (Namespaces=1):
+
+![RQT Graph Namespace Grouped](images/rqt_graph_namespace_grouped.png "RQT Graph with namespaces grouped")
+
+**Screenshot**: `colcon build` output:
+
+![Colcon Build Namespace](images/colcon_build_my_robot_bringup_namespace.png "colcon build for my_robot_bringup with namespaces")
+
+### Step 6: (Optional) Test the Python Launch File
+
+Test `number_app.launch.py` to confirm identical behavior.
+
+1. **Run the Python Launch File**:
+   ```bash
+   ros2 launch my_robot_bringup number_app.launch.py
+   ```
+   **Expected Output**: Same as XML (PIDs may differ).
+
+2. **Verify Nodes, Topics, and Parameters**:
+   Repeat `ros2 node list`, `ros2 topic list`, `ros2 topic echo /abc/my_number`, `ros2 param list`, and `rqt_graph`. Results should match the XML launch file.
+
+### Step 7: Understand the Workflow
+
+- **Namespaces**:
+  - XML: `namespace="/abc"` in `<node>` prepends `/abc/` to node names, topics, and parameters.
+  - Python: `namespace='/abc'` in `Node` does the same.
+  - Equivalent to `--ros-args --remap __ns:=/abc`.
+
+- **Leading Slashes**:
+  - Relative names (`number`) become `/abc/number` with namespace `/abc`.
+  - Absolute names (`/number`) remain `/number`, ignoring namespaces.
+  - Use relative names in code for namespace flexibility.
+
+- **Remapping with Namespaces**:
+  - Relative remappings (`from="number" to="my_number"`) apply after namespace: `/abc/number` → `/abc/my_number`.
+  - Absolute remappings (`from="/number" to="/my_number"`) fail if the topic is `/abc/number`.
+  - Use relative remappings for scalability.
+
+- **Use Case**:
+  - Namespaces enable multi-robot setups (e.g., `/robot1/my_number_publisher`, `/robot2/my_number_publisher`).
+  - No code changes needed; configure via launch files.
+
+- **XML vs. Python**:
+  - XML: Concise, using `namespace` attribute.
+  - Python: Requires `namespace` parameter, slightly more verbose.
+  - XML preferred, per [9.3 - Writing Python Launch Files (Python vs. XML)](Section%209%20-%20ROS2%20Launch%20Files/9.3%20-%20Writing%20Python%20Launch%20Files%20(Python%20vs.%20XML).md).
+
+- **Verification**:
+  - `ros2 node list` shows `/abc/...`.
+  - `ros2 topic list` and `rqt_graph` confirm `/abc/my_number`.
+  - `ros2 param list` shows parameters under `/abc/my_number_publisher`.
+
+### Troubleshooting
+
+- **Nodes Not Namespaced**:
+  - Verify `namespace="/abc"` in XML or `namespace='/abc'` in Python.
+  - Check `ros2 node list` for `/abc/...`.
+- **Topic Mismatch**:
+  - Ensure relative remappings (`from="number" to="my_number"`) in both nodes.
+  - Verify no leading slashes in node code (`number`, not `/number`).
+  - Check `ros2 topic list` and `rqt_graph`.
+- **Parameters Not Namespaced**:
+  - Confirm YAML file uses correct node name (`my_number_publisher`).
+  - Check `ros2 param list /abc/my_number_publisher`.
+- **Launch File Errors**:
+  - XML: Confirm `namespace` attribute and `<remap>` tags are correct.
+  - Python: Check `namespace` and `remappings` syntax.
+  - Run with `--show-all`: `ros2 launch my_robot_bringup number_app.launch.xml --show-all`.
+- **Build Issues**:
+  - Ensure `install(DIRECTORY launch config ...)` in `CMakeLists.txt`.
+  - Verify `ament_cmake` in `package.xml`.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Namespaces**: XML `namespace` and Python `namespace` apply `__ns` remapping, per [ROS2 Launch XML](https://docs.ros.org/en/jazzy/api/launch/xml_syntax.html#node) and [ROS2 Launch Python](https://docs.ros.org/en/jazzy/api/launch_ros/launch_ros.actions.Node.html).
+  - **Leading Slashes**: Absolute names ignore namespaces, relative names adopt them, per [ROS2 Names](https://docs.ros.org/en/jazzy/Concepts/About-ROS2-Names.html).
+  - **Remapping**: Relative remappings are namespace-aware, per [ROS2 Remapping](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Nodes/Understanding-ROS2-Nodes.html#remapping).
+  - **Verification**: `ros2 node list`, `ros2 topic list`, `ros2 param list`, and `rqt_graph` validate namespaces, per [ROS2 CLI Tools](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics/Understanding-ROS2-Topics.html).
+  - **XML Preference**: XML is simpler, per [ROS2 Launch Best Practices](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Creating-Launch-Files.html#choosing-a-launch-file-format).
+
+- **Transcript Clarifications**:
+  - Corrected “rush” to “ros2” and “Ross args” to `--ros-args`.
+  - Specified `--remap __ns:=/<namespace>` for CLI namespace setting.
+  - Clarified relative vs. absolute remappings and their impact.
+  - Emphasized removing leading slashes in remappings for scalability.
+  - Noted RQT Graph namespace grouping (0 vs. 1).
+
+- **Repository Structure**:
+  - Places tutorial in `Section 9 - ROS2 Launch Files/`, following 9.1–9.5.
+  - Uses `images/` for five new screenshots: `number_publisher_no_slash.png`, `number_app_launch_xml_namespace.png`, `number_app_launch_py_namespace.png`, `rqt_graph_namespace_mismatch.png`, `rqt_graph_namespace_correct.png`, `rqt_graph_namespace_grouped.png`, `colcon_build_my_robot_bringup_namespace.png`. Reuses `my_robot_bringup_structure.png` from 9.5.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `number_publisher_no_slash.png`: `number_publisher.py` showing relative names.
+    - `number_app_launch_xml_namespace.png`: `number_app.launch.xml` with namespaces.
+    - `number_app_launch_py_namespace.png`: `number_app.launch.py` with namespaces.
+    - `rqt_graph_namespace_mismatch.png`: RQT Graph showing topic mismatch.
+    - `rqt_graph_namespace_correct.png`: RQT Graph with correct remapping (Namespaces=0).
+    - `rqt_graph_namespace_grouped.png`: RQT Graph with namespaces grouped (Namespaces=1).
+    - `colcon_build_my_robot_bringup_namespace.png`: `colcon build` output.
+    - Reuse `my_robot_bringup_structure.png` from 9.5.
+  - Use GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use XML for concise launch files.
+  - Use relative names in code (`number`, not `/number`) for namespace flexibility.
+  - Use relative remappings (`from="number" to="my_number"`) for scalability.
+  - Apply namespaces to all related nodes to avoid mismatches.
+  - Verify with `ros2 node list`, `ros2 topic list`, and `rqt_graph`.
+
+## Next Steps
+
+You’ve added namespaces to nodes in an XML launch file and seen the Python equivalent. Next, you’ll:
+- Add launch arguments for dynamic configurations (e.g., `9.7 - Using Launch Arguments in ROS2 Launch Files`).
+- Create complex launch files with groups or includes.
+- Launch `turtlesim` nodes with namespaces, extending [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Explore advanced features like event handlers or substitutions.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

@@ -1,0 +1,563 @@
+# 9.5 - Loading Parameters in a ROS2 Launch File
+
+This tutorial demonstrates how to set parameters for the `number_publisher` node in an XML launch file, both individually using `<param>` tags and by loading a YAML file installed in the `my_robot_bringup` package. It enhances the XML launch file from [9.4 - Adding Remappings and Node Renaming in a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.4%20-%20Adding%20Remappings%20and%20Node%20Renaming%20in%20a%20ROS2%20Launch%20File.md), briefly shows the Python equivalent, and verifies the parameters using ROS2 CLI tools. The tutorial assumes the `number_publisher` node (from [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md)) declares two parameters: `number` (integer) and `timer_period` (double). It builds on [9.1 - What is a ROS2 Launch File?](Section%209%20-%20ROS2%20Launch%20Files/9.1%20-%20What%20is%20a%20ROS2%20Launch%20File%3F.md) through [9.4 - Adding Remappings and Node Renaming in a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.4%20-%20Adding%20Remappings%20and%20Node%20Renaming%20in%20a%20ROS2%20Launch%20File.md), parameters from [8.1 - What is a ROS2 Parameter](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter.md) through [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md), services from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) through [6.6 - Writing a C++ Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.6%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(Non-OOP).md), and topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md). It is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with `my_py_pkg`, `my_cpp_pkg`, and `my_robot_bringup`, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md), and [9.2 - Creating and Installing a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.2%20-%20Creating%20and%20Installing%20a%20ROS2%20Launch%20File.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Package Dependencies**: Ensure `my_robot_bringup`’s `package.xml` includes `<exec_depend>my_py_pkg</exec_depend>` and `<exec_depend>my_cpp_pkg</exec_depend>`, and `my_py_pkg` and `my_cpp_pkg` include `rclpy`, `rclcpp`, and `example_interfaces` (from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md)).
+- **Nodes**: The `number_publisher` (Python) and `number_counter` (C++) nodes from [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.5 - Writing a C++ Subscriber](Section%205%20-%20ROS2%20Communication/5.5%20-%20Writing%20a%20C%2B%2B%20Subscriber.md), with `number_publisher` declaring parameters `number` (int) and `timer_period` (double) from [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md).
+- **Launch Knowledge**: Understanding of launch files, XML format, remapping, and Python basics from [9.1 - What is a ROS2 Launch File?](Section%209%20-%20ROS2%20Launch%20Files/9.1%20-%20What%20is%20a%20ROS2%20Launch%20File%3F.md) through [9.4 - Adding Remappings and Node Renaming in a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.4%20-%20Adding%20Remappings%20and%20Node%20Renaming%20in%20a%20ROS2%20Launch%20File.md).
+- **Parameter Knowledge**: Familiarity with ROS2 parameters and YAML files from [8.1 - What is a ROS2 Parameter](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter.md) through [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md).
+- **CLI Tools**: Familiarity with `ros2 launch`, `ros2 node`, `ros2 topic`, `ros2 param`, and `rqt_graph` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`code`): `sudo snap install --classic code`.
+
+## Understanding Parameters in Launch Files
+
+- **Parameters in ROS2**:
+  - Configurable values for nodes, set at runtime, equivalent to `ros2 run <package> <executable> --ros-args -p <param_name>:=<value>`.
+  - Declared in node code (e.g., `number` and `timer_period` in `number_publisher`).
+  - Managed via `ros2 param` CLI or launch files.
+
+- **Setting Parameters in Launch Files**:
+  - **Individual Parameters**: Use `<param>` tags with `name` and `value` attributes in XML, or `parameters=[{...}]` in Python.
+  - **YAML Files**: Load multiple parameters from a YAML file using `<param from="...">` in XML or `parameters=[path]` in Python.
+  - **Why Use YAML?**:
+    - Scales better for many parameters (e.g., 200 parameters in one file).
+    - Reusable across nodes or launch files.
+    - Organized in the package’s `config/` folder.
+
+- **Installation**:
+  - YAML files are placed in a `config/` folder in `my_robot_bringup`.
+  - Installed to `share/my_robot_bringup/config/` via `CMakeLists.txt`.
+
+- **Why in Launch Files?**:
+  - Centralizes parameter configuration, avoiding manual CLI arguments.
+  - Ensures consistent parameter values across launches.
+  - Simplifies management for complex applications.
+
+## Step-by-Step Instructions
+
+### Step 1: Verify the Bringup Package
+
+Ensure the `my_robot_bringup` package is set up.
+
+1. **Check Package Structure**:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_bringup
+   ls
+   ```
+   **Expected Output**:
+   ```
+   CMakeLists.txt  launch  package.xml
+   ```
+   Verify the `launch/` folder:
+   ```bash
+   ls launch
+   ```
+   **Expected Output**:
+   ```
+   number_app.launch.xml  number_app.launch.py  number_app_from_python.launch.xml
+   ```
+
+2. **Verify package.xml**:
+   Open `package.xml`:
+   ```bash
+   code package.xml
+   ```
+   Confirm `<exec_depend>my_py_pkg</exec_depend>` and `<exec_depend>my_cpp_pkg</exec_depend>`.
+
+3. **Verify CMakeLists.txt**:
+   Open `CMakeLists.txt`:
+   ```bash
+   code CMakeLists.txt
+   ```
+   Confirm:
+   ```cmake
+   install(DIRECTORY
+     launch
+     DESTINATION share/${PROJECT_NAME}/
+   )
+   ```
+
+**Screenshot**: `my_robot_bringup` package structure (reused from 9.2):
+
+![Bringup Package Structure](images/my_robot_bringup_structure.png "my_robot_bringup package with launch folder")
+
+### Step 2: Create the Config Folder and YAML File
+
+Create a `config/` folder in `my_robot_bringup` and add a YAML file for parameters.
+
+1. **Create Config Folder**:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_bringup
+   mkdir config
+   ```
+
+2. **Create YAML File**:
+   Create `number_app.yaml`:
+   ```bash
+   cd config
+   touch number_app.yaml
+   ```
+
+3. **Write the YAML File**:
+   Open `number_app.yaml`:
+   ```bash
+   code number_app.yaml
+   ```
+   Add:
+   ```yaml
+   my_number_publisher:
+     ros__parameters:
+       number: 6
+       timer_period: 1.5
+   ```
+
+   **Explanation**:
+   - `my_number_publisher`: Matches the node name from [9.4 - Adding Remappings and Node Renaming in a ROS2 Launch File](Section%209%20-%20ROS2%20Launch%20Files/9.4%20-%20Adding%20Remappings%20and%20Node%20Renaming%20in%20a%20ROS2%20Launch%20File.md).
+   - `ros__parameters`: Standard YAML key for ROS2 parameters.
+   - `number: 6`: Sets the `number` parameter to 6 (integer).
+   - `timer_period: 1.5`: Sets the `timer_period` parameter to 1.5 seconds (double).
+
+**Screenshot**: `number_app.yaml` in VS Code:
+
+![Number App YAML](images/number_app_yaml.png "number_app.yaml in VS Code")
+
+### Step 3: Update CMakeLists.txt
+
+Modify `CMakeLists.txt` to install the `config/` folder.
+
+1. **Edit CMakeLists.txt**:
+   Open `CMakeLists.txt`:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_bringup
+   code CMakeLists.txt
+   ```
+   Update to:
+   ```cmake
+   cmake_minimum_required(VERSION 3.8)
+   project(my_robot_bringup)
+
+   find_package(ament_cmake REQUIRED)
+
+   install(DIRECTORY
+     launch config
+     DESTINATION share/${PROJECT_NAME}/
+   )
+
+   ament_package()
+   ```
+
+   **Changes**:
+   - Added `config` to `install(DIRECTORY launch config ...)`, ensuring the `config/` folder is installed to `share/my_robot_bringup/config/`.
+
+**Screenshot**: Updated `CMakeLists.txt` in VS Code:
+
+![CMakeLists Config](images/cmakelists_my_robot_bringup_config.png "CMakeLists.txt with config folder")
+
+### Step 4: Update the XML Launch File
+
+Modify `number_app.launch.xml` to set parameters for `number_publisher`, first individually, then via the YAML file.
+
+1. **Navigate to Launch Folder**:
+   ```bash
+   cd ~/ros2_ws/src/my_robot_bringup/launch
+   ```
+
+2. **Edit the Launch File (Individual Parameters)**:
+   Open `number_app.launch.xml`:
+   ```bash
+   code number_app.launch.xml
+   ```
+   Update to:
+   ```xml
+   <launch>
+       <node pkg="my_py_pkg" exec="number_publisher" name="my_number_publisher">
+           <remap from="number" to="my_number"/>
+           <param name="number" value="6"/>
+           <param name="timer_period" value="1.5"/>
+       </node>
+       <node pkg="my_cpp_pkg" exec="number_counter" name="my_number_counter">
+           <remap from="number" to="my_number"/>
+       </node>
+   </launch>
+   ```
+
+   **Changes**:
+   - Added `<param name="number" value="6"/>` to set `number` to 6.
+   - Added `<param name="timer_period" value="1.5"/>` to set `timer_period` to 1.5 seconds.
+   - Parameters are set inside the `<node>` tag for `my_number_publisher`.
+
+**Screenshot**: `number_app.launch.xml` with individual parameters:
+
+![Number App Launch Params](images/number_app_launch_xml_params.png "number_app.launch.xml with individual parameters")
+
+3. **Test Individual Parameters**:
+   Build and test:
+   ```bash
+   cd ~/ros2_ws
+   colcon build --packages-select my_robot_bringup
+   source install/setup.bash
+   ros2 launch my_robot_bringup number_app.launch.xml
+   ```
+   Verify parameters:
+   ```bash
+   ros2 param list /my_number_publisher
+   ```
+   **Expected Output**:
+   ```
+   /my_number_publisher/number
+   /my_number_publisher/timer_period
+   /my_number_publisher/use_sim_time
+   ```
+   Get parameter values:
+   ```bash
+   ros2 param get /my_number_publisher/number
+   ```
+   **Expected Output**:
+   ```
+   Integer value is: 6
+   ```
+   ```bash
+   ros2 param get /my_number_publisher/timer_period
+   ```
+   **Expected Output**:
+   ```
+   Double value is: 1.5
+   ```
+   Verify topic:
+   ```bash
+   ros2 topic echo /my_number
+   ```
+   **Expected Output**:
+   ```
+   data: 6
+   ---
+   data: 6
+   ---
+   ...
+   ```
+   (Published every 1.5 seconds.)
+
+4. **Edit the Launch File (YAML Parameters)**:
+   Comment out individual `<param>` tags and add a YAML file reference:
+   ```xml
+   <launch>
+       <node pkg="my_py_pkg" exec="number_publisher" name="my_number_publisher">
+           <remap from="number" to="my_number"/>
+           <!-- <param name="number" value="6"/> -->
+           <!-- <param name="timer_period" value="1.5"/> -->
+           <param from="$(find-pkg-share my_robot_bringup)/config/number_app.yaml"/>
+       </node>
+       <node pkg="my_cpp_pkg" exec="number_counter" name="my_number_counter">
+           <remap from="number" to="my_number"/>
+       </node>
+   </launch>
+   ```
+
+   **Changes**:
+   - Commented `<param name="number" value="6"/>` and `<param name="timer_period" value="1.5"/>` using `<!-- -->`.
+   - Added `<param from="$(find-pkg-share my_robot_bringup)/config/number_app.yaml"/>` to load parameters from `number_app.yaml`.
+   - `$(find-pkg-share my_robot_bringup)` resolves to `share/my_robot_bringup/`.
+
+**Screenshot**: `number_app.launch.xml` with YAML parameters:
+
+![Number App Launch YAML](images/number_app_launch_xml_yaml.png "number_app.launch.xml with YAML parameters")
+
+### Step 5: (Optional) Update the Python Launch File
+
+For reference, update `number_app.launch.py` to show individual parameters and YAML loading.
+
+1. **Edit the Python Launch File (Individual Parameters)**:
+   Open `number_app.launch.py`:
+   ```bash
+   code number_app.launch.py
+   ```
+   Update to:
+   ```python
+   from launch import LaunchDescription
+   from launch_ros.actions import Node
+
+   def generate_launch_description():
+       ld = LaunchDescription()
+
+       number_publisher_node = Node(
+           package='my_py_pkg',
+           executable='number_publisher',
+           name='my_number_publisher',
+           remappings=[('number', 'my_number')],
+           parameters=[{'number': 6, 'timer_period': 1.5}]
+       )
+
+       number_counter_node = Node(
+           package='my_cpp_pkg',
+           executable='number_counter',
+           name='my_number_counter',
+           remappings=[('number', 'my_number')]
+       )
+
+       ld.add_action(number_publisher_node)
+       ld.add_action(number_counter_node)
+
+       return ld
+   ```
+
+   **Changes**:
+   - Added `parameters=[{'number': 6, 'timer_period': 1.5}]` to set parameters as a dictionary.
+
+2. **Edit the Python Launch File (YAML Parameters)**:
+   Update to:
+   ```python
+   from launch import LaunchDescription
+   from launch_ros.actions import Node
+   from ament_index_python.packages import get_package_share_directory
+   import os
+
+   def generate_launch_description():
+       ld = LaunchDescription()
+
+       config = os.path.join(
+           get_package_share_directory('my_robot_bringup'),
+           'config',
+           'number_app.yaml'
+       )
+
+       number_publisher_node = Node(
+           package='my_py_pkg',
+           executable='number_publisher',
+           name='my_number_publisher',
+           remappings=[('number', 'my_number')],
+           parameters=[config]
+       )
+
+       number_counter_node = Node(
+           package='my_cpp_pkg',
+           executable='number_counter',
+           name='my_number_counter',
+           remappings=[('number', 'my_number')]
+       )
+
+       ld.add_action(number_publisher_node)
+       ld.add_action(number_counter_node)
+
+       return ld
+   ```
+
+   **Changes**:
+   - Imported `get_package_share_directory` and `os`.
+   - Defined `config` path using `os.path.join` and `get_package_share_directory`.
+   - Replaced `parameters=[{...}]` with `parameters=[config]` to load `number_app.yaml`.
+
+**Screenshot**: `number_app.launch.py` with YAML parameters:
+
+![Number App Python YAML](images/number_app_launch_py_yaml.png "number_app.launch.py with YAML parameters")
+
+### Step 6: Build and Test the XML Launch File (YAML)
+
+Build and test the XML launch file with YAML parameters.
+
+1. **Build the Package**:
+   ```bash
+   cd ~/ros2_ws
+   colcon build --packages-select my_robot_bringup
+   ```
+
+2. **Source the Workspace**:
+   ```bash
+   source install/setup.bash
+   ```
+
+3. **Run the Launch File**:
+   ```bash
+   ros2 launch my_robot_bringup number_app.launch.xml
+   ```
+   **Expected Output**:
+   ```
+   [INFO] [launch]: All log files can be found below /home/user/.ros/log/...
+   [INFO] [launch]: Default logging verbosity is set to INFO
+   [INFO] [number_publisher-1]: process started with pid [12345]
+   [INFO] [number_counter-2]: process started with pid [12346]
+   [INFO] [number_publisher-1]: Publishing: 6
+   [INFO] [number_counter-2]: Count: 6
+   [INFO] [number_publisher-1]: Publishing: 6
+   [INFO] [number_counter-2]: Count: 6
+   ...
+   ```
+
+4. **Verify Parameters**:
+   ```bash
+   ros2 param list /my_number_publisher
+   ```
+   **Expected Output**:
+   ```
+   /my_number_publisher/number
+   /my_number_publisher/timer_period
+   /my_number_publisher/use_sim_time
+   ```
+   ```bash
+   ros2 param get /my_number_publisher/number
+   ```
+   **Expected Output**:
+   ```
+   Integer value is: 6
+   ```
+   ```bash
+   ros2 param get /my_number_publisher/timer_period
+   ```
+   **Expected Output**:
+   ```
+   Double value is: 1.5
+   ```
+
+5. **Verify Topic**:
+   ```bash
+   ros2 topic echo /my_number
+   ```
+   **Expected Output**:
+   ```
+   data: 6
+   ---
+   data: 6
+   ---
+   ...
+   ```
+   (Published every 1.5 seconds, verifiable with `ros2 topic hz /my_number`.)
+
+6. **Visualize with RQT Graph**:
+   ```bash
+   rqt_graph
+   ```
+   - Uncheck “Hide Dead Sinks” and “Hide Debug”.
+   - Select “Nodes/Topics (all)” to see `/my_number_publisher` → `/my_number` → `/my_number_counter` → `/number_count`.
+
+**Screenshot**: RQT Graph (reused from 9.4, as output is similar):
+
+![RQT Graph Remapped](images/rqt_graph_number_app_remap.png "RQT Graph for number_app.launch.xml")
+
+**Screenshot**: `colcon build` output:
+
+![Colcon Build Config](images/colcon_build_my_robot_bringup_config.png "colcon build for my_robot_bringup with config")
+
+### Step 7: (Optional) Test the Python Launch File
+
+Test `number_app.launch.py` with YAML parameters to confirm identical behavior.
+
+1. **Run the Python Launch File**:
+   ```bash
+   ros2 launch my_robot_bringup number_app.launch.py
+   ```
+   **Expected Output**: Same as XML (PIDs may differ).
+
+2. **Verify Parameters and Topics**:
+   Repeat `ros2 param list`, `ros2 param get`, `ros2 topic echo /my_number`, and `rqt_graph`. Results should match the XML launch file.
+
+### Step 8: Understand the Workflow
+
+- **Individual Parameters**:
+  - XML: `<param name="..." value="..."/>` inside `<node>`, equivalent to `--ros-args -p name:=value`.
+  - Python: `parameters=[{'name': value}]` as a dictionary.
+  - Suitable for few parameters but verbose for many.
+
+- **YAML Parameters**:
+  - YAML file (`number_app.yaml`) defines parameters under the node name (`my_number_publisher`).
+  - Installed via `install(DIRECTORY ... config ...)` in `CMakeLists.txt`.
+  - XML: `<param from="$(find-pkg-share ...)/config/....yaml"/>` loads the YAML file.
+  - Python: `parameters=[os.path.join(get_package_share_directory(...), 'config', '...yaml')]` loads the YAML file.
+  - Scales for many parameters, keeping the launch file concise.
+
+- **Config Folder**:
+  - Standard practice to store YAML files in `config/` (or `params/`).
+  - Installed to `share/my_robot_bringup/config/` for access via `find-pkg-share`.
+
+- **XML vs. Python**:
+  - XML: Simpler, using `<param from="...">` with `find-pkg-share`.
+  - Python: More verbose, requiring imports (`os`, `get_package_share_directory`) and path construction.
+  - XML preferred for clarity, per [9.3 - Writing Python Launch Files (Python vs. XML)](Section%209%20-%20ROS2%20Launch%20Files/9.3%20-%20Writing%20Python%20Launch%20Files%20(Python%20vs.%20XML).md).
+
+- **Verification**:
+  - `ros2 param list/get` confirms parameter values.
+  - `ros2 topic echo /my_number` verifies `number=6` and `timer_period=1.5` (frequency ~0.67 Hz).
+  - `rqt_graph` shows the topic structure.
+
+### Troubleshooting
+
+- **Parameters Not Set**:
+  - Verify parameter names (`number`, `timer_period`) match node declarations in `number_publisher`.
+  - Check XML: `<param name="..." value="..."/>` or `<param from="..."/>`.
+  - Check Python: `parameters=[{...}]` or `parameters=[config]`.
+  - Use `ros2 param list /my_number_publisher` and `ros2 param get`.
+- **YAML File Not Found**:
+  - Confirm `number_app.yaml` is in `~/ros2_ws/src/my_robot_bringup/config/`.
+  - Verify `install(DIRECTORY launch config ...)` in `CMakeLists.txt`.
+  - Check path: `$(find-pkg-share my_robot_bringup)/config/number_app.yaml`.
+  - Rebuild: `colcon build --packages-select my_robot_bringup`.
+- **Wrong Parameter Values**:
+  - Ensure correct data types in XML (`value="6"`, `value="1.5"`) or YAML (`number: 6`, `timer_period: 1.5`).
+  - Verify node name in YAML (`my_number_publisher`).
+- **Launch File Errors**:
+  - XML: Confirm `<param>` tags are inside `<node>` and properly formatted.
+  - Python: Check imports, path syntax, and `parameters` format.
+  - Run with `--show-all`: `ros2 launch my_robot_bringup number_app.launch.xml --show-all`.
+- **Build Issues**:
+  - Ensure `ament_cmake` in `package.xml`.
+  - Verify `install(DIRECTORY ...)` includes `config`.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Parameters in Launch**: XML `<param name="..." value="..."/>` and `<param from="..."/>`, Python `parameters=[{...}]` or `parameters=[path]`, per [ROS2 Launch XML](https://docs.ros.org/en/jazzy/api/launch/xml_syntax.html#param) and [ROS2 Launch Python](https://docs.ros.org/en/jazzy/api/launch_ros/launch_ros.actions.Node.html#parameters).
+  - **YAML Parameters**: Loaded via `find-pkg-share` in XML or `get_package_share_directory` in Python, per [ROS2 Launch Tutorials](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Using-ROS2-Launch-For-Large-Projects.html#using-yaml-files-for-parameters).
+  - **Config Folder**: Standard for YAML files, installed via `install(DIRECTORY ...)`, per [ROS2 CMake Integration](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Creating-Launch-Files.html#installing-launch-files).
+  - **Parameter Verification**: `ros2 param list/get` confirms values, per [ROS2 CLI Tools](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters/Understanding-ROS2-Parameters.html).
+  - **XML Preference**: XML is simpler for parameters, per [ROS2 Launch Best Practices](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Creating-Launch-Files.html#choosing-a-launch-file-format).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2” and “Ros args” to `--ros-args`.
+  - Specified `--ros-args -p <name>:=<value>` for CLI parameter setting.
+  - Clarified `number_publisher` has `number` and `timer_period` parameters from 8.3.
+  - Noted `my_number_publisher` as the node name in YAML, matching 9.4.
+  - Corrected `find-pkg-share` syntax and emphasized `config/` installation.
+  - Included Python example for completeness, emphasizing XML preference.
+
+- **Repository Structure**:
+  - Places tutorial in `Section 9 - ROS2 Launch Files/`, following 9.1–9.4.
+  - Uses `images/` for five new screenshots: `number_app_yaml.png`, `cmakelists_my_robot_bringup_config.png`, `number_app_launch_xml_params.png`, `number_app_launch_xml_yaml.png`, `number_app_launch_py_yaml.png`, `colcon_build_my_robot_bringup_config.png`. Reuses `my_robot_bringup_structure.png` and `rqt_graph_number_app_remap.png` from 9.4.
+
+- **Images**:
+  - Create screenshots for `images/`:
+    - `number_app_yaml.png`: `number_app.yaml` in VS Code.
+    - `cmakelists_my_robot_bringup_config.png`: Updated `CMakeLists.txt` in VS Code.
+    - `number_app_launch_xml_params.png`: `number_app.launch.xml` with individual parameters.
+    - `number_app_launch_xml_yaml.png`: `number_app.launch.xml` with YAML parameters.
+    - `number_app_launch_py_yaml.png`: `number_app.launch.py` with YAML parameters.
+    - `colcon_build_my_robot_bringup_config.png`: `colcon build` output.
+    - Reuse `my_robot_bringup_structure.png` and `rqt_graph_number_app_remap.png` from 9.4.
+  - Use GNOME Screenshot or Shutter.
+
+- **Best Practices**:
+  - Use XML for concise, readable launch files.
+  - Store YAML parameter files in `config/` and install via `CMakeLists.txt`.
+  - Use YAML for many parameters to keep launch files small.
+  - Verify parameters with `ros2 param list/get` and topic behavior with `ros2 topic echo`.
+  - Comment out unused `<param>` tags for clarity.
+
+## Next Steps
+
+You’ve set parameters in an XML launch file, both individually and via a YAML file, and seen the Python equivalent. Next, you’ll:
+- Add launch arguments for dynamic configurations (e.g., `9.6 - Using Launch Arguments in ROS2 Launch Files`).
+- Create complex launch files with namespaces and groups.
+- Launch `turtlesim` nodes, extending [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Explore advanced features like event handlers or substitutions.
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.

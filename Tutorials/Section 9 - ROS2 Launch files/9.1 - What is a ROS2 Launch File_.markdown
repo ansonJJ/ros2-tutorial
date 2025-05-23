@@ -1,0 +1,217 @@
+# 9.1 - What is a ROS2 Launch File?
+
+This tutorial introduces **ROS2 launch files**, which automate the startup of multiple ROS2 nodes with their configurations, such as parameters, topic remappings, and YAML file loading. By addressing the complexity of manually launching nodes for a robot application (e.g., multiple camera drivers, news stations, and LED panels), launch files simplify and scale the process. This tutorial builds on parameters from [8.1 - What is a ROS2 Parameter](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter.md) through [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md), services from [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) through [6.6 - Writing a C++ Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.6%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(Non-OOP).md), and topics from [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) through [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md). It is part of the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) Udemy course and targets ROS2 Jazzy Jalisco on Ubuntu 24.04.
+
+## Prerequisites
+
+- **ROS2 Installation**: ROS2 Jazzy installed in `/opt/ros/jazzy` (via `ros-jazzy-desktop`). Source the environment:
+  ```bash
+  source /opt/ros/jazzy/setup.bash
+  ```
+  See the [ROS2 Installation Guide](https://docs.ros.org/en/jazzy/Installation.html) if not installed.
+- **ROS2 Workspace**: A ROS2 workspace (`~/ros2_ws`) with the `my_py_pkg` Python package and `my_cpp_pkg` C++ package, set up in [3.1 - ROS2 Workspace Setup Tutorial](Section%203%20-%20Your%20First%20ROS2%20Program/3.1%20-%20ROS2%20Workspace%20Setup%20Tutorial.md), [3.2 - Creating a ROS2 Python Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.2%20-%20Creating%20a%20ROS2%20Python%20Package.md), and [3.3 - Creating a ROS2 C++ Package](Section%203%20-%20Your%20First%20ROS2%20Program/3.3%20-%20Creating%20a%20ROS2%20C%2B%2B%20Package.md). Source the workspace:
+  ```bash
+  source ~/ros2_ws/install/setup.bash
+  ```
+- **Package Dependencies**: Ensure `my_py_pkg` and `my_cpp_pkg`’s `package.xml` include necessary dependencies (e.g., `rclcpp`, `example_interfaces`), as set in [5.2 - Writing a Python Publisher](Section%205%20-%20ROS2%20Communication/5.2%20-%20Writing%20a%20Python%20Publisher.md) and [5.4 - Writing a C++ Publisher](Section%205%20-%20ROS2%20Communication/5.4%20-%20Writing%20a%20C%2B%2B%20Publisher.md).
+- **Node Knowledge**: Familiarity with ROS2 nodes, parameters, and remappings from:
+  - Parameters: [8.1 - What is a ROS2 Parameter](Section%208%20-%20ROS2%20Parameters/8.1%20-%20What%20is%20a%20ROS2%20Parameter.md) to [8.3 - Using ROS2 Parameters in Python](Section%208%20-%20ROS2%20Parameters/8.3%20-%20Using%20ROS2%20Parameters%20in%20Python.md).
+  - Services: [6.1 - What is a ROS2 Service](Section%206%20-%20ROS2%20Services/6.1%20-%20What%20is%20a%20ROS2%20Service.md) to [6.6 - Writing a C++ Service Client (Non-OOP)](Section%206%20-%20ROS2%20Services/6.6%20-%20Writing%20a%20C%2B%2B%20Service%20Client%20(Non-OOP).md).
+  - Topics: [5.1 - What is a ROS2 Topic](Section%205%20-%20ROS2%20Communication/5.1%20-%20What%20is%20a%20ROS2%20Topic.md) to [5.9 - Experimenting with ROS2 Topics Using Turtlesim](Section%205%20-%20ROS2%20Communication/5.9%20-%20Experimenting%20with%20ROS2%20Topics%20Using%20Turtlesim.md).
+- **CLI Tools**: Familiarity with `ros2 run`, `ros2 node`, and `ros2 param` from [4.1 - Introspecting Nodes with ROS2 CLI](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.1%20-%20Introspecting%20Nodes%20with%20ROS2%20CLI.md) and [5.6 - Introspecting ROS2 Topics with Command Line Tools](Section%205%20-%20ROS2%20Communication/5.6%20-%20Introspecting%20ROS2%20Topics%20with%20Command%20Line%20Tools.md).
+- **Development Tools**:
+  - A `bash`-compatible terminal (e.g., Terminator: `sudo apt install terminator`).
+  - Visual Studio Code (`code`): `sudo snap install --classic code`.
+
+## What is a ROS2 Launch File?
+
+A **ROS2 launch file** is a configuration file (typically in Python, XML, or YAML) that automates the startup of multiple ROS2 nodes with their associated settings, such as parameters, topic remappings, and namespace configurations. It eliminates the need to manually launch each node in separate terminals, reducing errors and enabling scalable robot applications. Launch files allow you to:
+- Start multiple nodes from a single command.
+- Set node names, parameters, and remappings.
+- Load parameters from YAML files.
+- Organize nodes into namespaces or groups.
+- Create different launch configurations for various robot modes (e.g., simulation, real hardware).
+
+### The Problem: Manual Node Launching
+
+Consider a robot application with multiple nodes, such as:
+- **Three Camera Driver Nodes**:
+  - Each requires parameters: `usb_device_name` (e.g., `/dev/video0`, `/dev/video1`, `/dev/video2`), `fps` (e.g., `30`), and `simulation_mode` (e.g., `false`).
+  - Each needs a unique node name (e.g., `camera_driver_1`, `camera_driver_2`, `camera_driver_3`).
+  - Launched manually:
+    ```bash
+    ros2 run camera_pkg camera_driver --ros-args --remap __node:=camera_driver_1 -p usb_device_name:=/dev/video0 -p fps:=30 -p simulation_mode:=false
+    ros2 run camera_pkg camera_driver --ros-args --remap __node:=camera_driver_2 -p usb_device_name:=/dev/video1 -p fps:=30 -p simulation_mode:=false
+    ros2 run camera_pkg camera_driver --ros-args --remap __node:=camera_driver_3 -p usb_device_name:=/dev/video2 -p fps:=30 -p simulation_mode:=false
+    ```
+- **Robot News Station Node**:
+  - Requires one parameter (e.g., `station_id`).
+  - Launched manually:
+    ```bash
+    ros2 run my_py_pkg robot_news_station --ros-args -p station_id:=1
+    ```
+- **Two LED Panel Nodes**:
+  - Each requires topic remappings (e.g., `/led_status` to `/led_panel_1/status`) and one parameter (e.g., `brightness`).
+  - Launched manually:
+    ```bash
+    ros2 run led_pkg led_panel --ros-args --remap led_status:=led_panel_1/status -p brightness:=50
+    ros2 run led_pkg led_panel --ros-args --remap led_status:=led_panel_2/status -p brightness:=50
+    ```
+
+**Issues with Manual Launching**:
+- **Complexity**: Each node requires a separate terminal and precise command with parameters and remappings.
+- **Time-Consuming**: Launching 10+ nodes with 200+ parameters takes significant effort.
+- **Error-Prone**: Typos in node names, parameters, or remappings can cause hard-to-debug issues.
+- **Non-Scalable**: Adding more nodes or changing configurations becomes unmanageable.
+- **Repetitive**: Restarting the application (e.g., after a crash) requires re-entering all commands.
+
+**Solution**: A ROS2 launch file consolidates all node configurations into one file, enabling a single command (e.g., `ros2 launch my_pkg my_launch_file.launch.py`) to start the entire application reliably.
+
+**Example**: A launch file for the above nodes might look like (simplified Python syntax):
+```python
+from launch import LaunchDescription
+from launch_ros.actions import Node
+
+def generate_launch_description():
+    return LaunchDescription([
+        Node(
+            package='camera_pkg',
+            executable='camera_driver',
+            name='camera_driver_1',
+            parameters=[{'usb_device_name': '/dev/video0', 'fps': 30, 'simulation_mode': False}]
+        ),
+        Node(
+            package='camera_pkg',
+            executable='camera_driver',
+            name='camera_driver_2',
+            parameters=[{'usb_device_name': '/dev/video1', 'fps': 30, 'simulation_mode': False}]
+        ),
+        Node(
+            package='camera_pkg',
+            executable='camera_driver',
+            name='camera_driver_3',
+            parameters=[{'usb_device_name': '/dev/video2', 'fps': 30, 'simulation_mode': False}]
+        ),
+        Node(
+            package='my_py_pkg',
+            executable='robot_news_station',
+            parameters=[{'station_id': 1}]
+        ),
+        Node(
+            package='led_pkg',
+            executable='led_panel',
+            remappings=[('led_status', 'led_panel_1/status')],
+            parameters=[{'brightness': 50}]
+        ),
+        Node(
+            package='led_pkg',
+            executable='led_panel',
+            remappings=[('led_status', 'led_panel_2/status')],
+            parameters=[{'brightness': 50}]
+        ),
+    ])
+```
+
+**Benefits**:
+- **Single Command**: Run `ros2 launch my_pkg my_launch_file.launch.py` to start all nodes.
+- **Consistency**: Ensures correct parameters and remappings every time.
+- **Scalability**: Easily add more nodes or configurations.
+- **Flexibility**: Create multiple launch files for different modes (e.g., `sim_mode.launch.py`, `real_robot.launch.py`).
+- **Debugging**: Centralized configuration simplifies troubleshooting.
+
+**Screenshot**: Example launch file in VS Code (to be created in a later tutorial, e.g., 9.2):
+
+![Example Launch File](images/example_launch_file_code.png "Example ROS2 launch file in VS Code")
+
+### How Launch Files Work
+
+- **File Types**:
+  - **Python**: Preferred for flexibility (e.g., `my_launch_file.launch.py`), using the `launch` and `launch_ros` Python modules.
+  - **XML**: Legacy format from ROS1, still supported (e.g., `my_launch_file.launch.xml`).
+  - **YAML**: Less common, used for simple configurations.
+- **Key Components**:
+  - **Nodes**: Defined with `Node` actions (package, executable, name, parameters, remappings).
+  - **Parameters**: Set directly or loaded from YAML files.
+  - **Remappings**: Rename topics, services, or node names (e.g., `__node:=camera_driver_1`).
+  - **Namespaces**: Group nodes under a namespace (e.g., `/camera1/...`).
+  - **Launch Description**: A collection of actions (nodes, groups, includes) executed by `ros2 launch`.
+- **Execution**:
+  - Run with `ros2 launch <package> <launch_file>`.
+  - The launch system processes the file, starts nodes, and applies configurations.
+- **Real-World Example**:
+  - A robot with 10 nodes (e.g., sensors, controllers, planners) and 200 parameters (e.g., sensor rates, control gains) can be launched with one command, ensuring all settings are applied correctly.
+
+### Use Cases
+
+- **Multi-Node Applications**: Launch sensor drivers, processing nodes, and actuators together.
+- **Parameter Management**: Load complex parameter sets from YAML files for consistency.
+- **Testing Modes**: Create separate launch files for simulation vs. real hardware.
+- **Deployment**: Simplify robot startup for end-users or automated scripts.
+- **Debugging**: Centralize configurations to trace issues (e.g., incorrect remappings).
+
+### Limitations
+
+- **Learning Curve**: Writing launch files requires understanding ROS2’s launch API (covered in later tutorials, e.g., 9.2).
+- **Debugging Complexity**: Errors in launch files (e.g., wrong package name) can be harder to trace than CLI commands.
+- **Dynamic Changes**: Launch files are static; runtime changes require tools like `ros2 param` or custom nodes.
+
+### Troubleshooting
+
+- **Node Not Found**:
+  - Verify `package` and `executable` names in the launch file.
+  - Ensure the package is built: `colcon build --packages-select <package>`.
+  - Source the workspace: `source ~/ros2_ws/install/setup.bash`.
+- **Parameter Errors**:
+  - Check parameter names and types match the node’s expectations.
+  - Validate YAML file syntax if used.
+- **Remapping Issues**:
+  - Confirm topic/service names exist (use `ros2 topic list` or `ros2 service list`).
+  - Verify remapping syntax (e.g., `('old_topic', 'new_topic')`).
+- **Launch File Fails**:
+  - Check for syntax errors in Python/XML (e.g., missing commas, incorrect indentation).
+  - Run `ros2 launch` with `--show-all` for detailed logs: `ros2 launch <package> <launch_file> --show-all`.
+
+### Notes
+
+- **Fact-Checking**:
+  - **Launch Files**: Automate node startup with configurations, per [ROS2 Launch Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Launch/Launch-Main.html).
+  - **Python Launch**: Uses `launch` and `launch_ros` modules, per [ROS2 Launch Python](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Creating-Launch-Files.html#writing-a-python-launch-file).
+  - **Node Action**: `Node` specifies package, executable, and configurations, per [ROS2 launch_ros API](https://docs.ros.org/en/jazzy/api/launch_ros/launch_ros.actions.Node.html).
+  - **Parameters**: Can be set inline or via YAML, per [ROS2 Parameters Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-Python.html).
+  - **Remappings**: Supported for topics, services, and node names, per [ROS2 Remapping](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Nodes/Understanding-ROS2-Nodes.html#remapping).
+  - **Scalability**: Essential for applications with many nodes/parameters, per [ROS2 Launch System](https://docs.ros.org/en/jazzy/Concepts/About-Launch.html).
+
+- **Transcript Clarifications**:
+  - Corrected “Ros” to “ROS2”.
+  - Specified `camera_pkg` and `led_pkg` as hypothetical packages for illustration.
+  - Clarified that launch files support Python, XML, and YAML, with Python being the modern standard.
+  - Noted that YAML files are optional for parameters but commonly used.
+  - Emphasized scalability for real applications (e.g., 10 nodes, 200 parameters).
+
+- **Repository Structure**:
+  - Places tutorial in `Section 9 - ROS2 Launch Files/`, following `Section 8 - ROS2 Parameters/`.
+  - Uses `images/` for one placeholder screenshot: `example_launch_file_code.png` (to be created in a later tutorial, e.g., 9.2).
+  - Assumes `Section 8 - ROS2 Parameters/` exists with 8.1–8.3, as referenced.
+
+- **Images**:
+  - Placeholder for `example_launch_file_code.png` (a launch file in VS Code, to be created in 9.2).
+  - No screenshots for this tutorial, as it’s conceptual; reuse `interface_show_add_two_ints.png` or others only if relevant in later tutorials.
+  - Use GNOME Screenshot or Shutter for future screenshots.
+
+- **Best Practices**:
+  - Use Python launch files for flexibility and maintainability.
+  - Organize parameters in YAML files for large applications.
+  - Use descriptive node names and namespaces to avoid conflicts.
+  - Test launch files incrementally to catch errors early.
+  - Document launch files for team collaboration.
+
+## Next Steps
+
+You’ve learned the purpose and benefits of ROS2 launch files for automating multi-node applications. Next, you’ll:
+- Create a Python launch file to launch multiple nodes (e.g., `9.2 - Writing a ROS2 Launch File in Python`).
+- Explore advanced launch features, such as namespaces, groups, and event handlers.
+- Use launch files with `turtlesim` nodes from [4.5 - Discover Turtlesim](Section%204%20-%20Introduction%20to%20ROS2%20Tools/4.5%20-%20Discover%20Turtlesim.md).
+- Integrate launch files with parameters from YAML files (building on 8.1–8.3).
+- Create launch files for different robot configurations (e.g., simulation vs. real hardware).
+
+For more details, refer to the [ROS2 Documentation](https://docs.ros.org/en/jazzy/index.html) or the [ROS2 for Beginners](https://www.udemy.com/course/ros2-for-beginners/) course.
